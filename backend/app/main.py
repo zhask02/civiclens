@@ -1,10 +1,7 @@
 from fastapi import FastAPI
 
+from app.api.health import router as health_router
+
 app = FastAPI()
 
-@app.get("/health")
-def health_check():
-    return{
-        "status" : "ok",
-        "service" : "CivicLens API",
-    }
+app.include_router(health_router)
