@@ -16,3 +16,21 @@ class IncidentCreate(BaseModel):
         le=180,
         examples = [77.5946],
     )
+
+from datetime import datetime
+from pydantic import BaseModel
+
+class IncidentResponse(BaseModel):
+    id:int
+    description: str
+    latitude: float
+    longitude: float
+    category: str | None
+    severity: str | None    
+    status: str
+    confidence: float | None
+    created_at: datetime
+
+    model_config = {
+        "from_attributes": True
+    }
