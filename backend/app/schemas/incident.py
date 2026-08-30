@@ -34,3 +34,9 @@ class IncidentResponse(BaseModel):
     model_config = {
         "from_attributes": True
     }
+
+class IncidentUpdate(BaseModel):
+    category: str | None = None
+    severity: str | None = None
+    status: str | None = None
+    confidence: float | None = None

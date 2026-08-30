@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.db.dependencies import get_db
 from app.models.incident import Incident
-from app.schemas.incident import IncidentCreate, IncidentResponse
+from app.schemas.incident import IncidentCreate, IncidentResponse, IncidentUpdate
 
 
 router = APIRouter()
@@ -36,5 +36,24 @@ def get_incident(incident_id: int, db: Session = Depends(get_db),):
 
     return incident
 
+@router.patch("/incidents/{incident_id}", response_model=IncidentResponse)
+def update_incident(
+    incident_id: int,
+    incident_update: IncidentUpdate,
+    db: Session = Depends(get_db),
+):
+    incident = db.query(Incident).filter(Incident.id == incident_id).first()
 
+    if incident is None:
+        raise HTTPException(status_code=404, detail="Incident not found")
+
+    update_data = incident_update.model_dump(exclude_unset=True)
+
+    for field, value in update_data.items():
+        setattr(incident, field, value)
+
+    db.commit()
+    db.refresh(incident)
+
+    return incident
 
