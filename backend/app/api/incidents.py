@@ -57,3 +57,12 @@ def update_incident(
 
     return incident
 
+@router.delete("/incidents/{incident_id}", status_code=204)
+def delete_incident(incident_id: int, db: Session = Depends(get_db)):
+    incident = db.query(Incident).filter(Incident.id == incident_id).first()
+
+    if incident is None:
+        raise HTTPException(status_code=404, detail="Incident not found")
+
+    db.delete(incident)
+    db.commit()
