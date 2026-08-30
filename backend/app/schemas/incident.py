@@ -1,4 +1,5 @@
 from pydantic import BaseModel, Field
+from app.enums.incident import IncidentCategory, IncidentSeverity
 
 class IncidentCreate(BaseModel):
     description: str = Field(
@@ -36,7 +37,7 @@ class IncidentResponse(BaseModel):
     }
 
 class IncidentUpdate(BaseModel):
-    category: str | None = None
-    severity: str | None = None
+    category: IncidentCategory | None = None
+    severity: IncidentSeverity | None = None
     status: str | None = None
     confidence: float | None = None
