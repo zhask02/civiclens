@@ -1,11 +1,10 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.db.dependencies import get_db
 from app.models.incident import Incident
 from app.schemas.incident import IncidentCreate, IncidentResponse
 
-from app.schemas.incident import IncidentCreate
 
 router = APIRouter()
 
@@ -27,3 +26,15 @@ def create_incident(incident: IncidentCreate, db: Session = Depends(get_db),):
 def get_incidents(db: Session = Depends(get_db)):
     incidents = db.query(Incident).all()
     return incidents
+
+@router.get("/incidents/{incident_id}", response_model=IncidentResponse)
+def get_incident(incident_id: int, db: Session = Depends(get_db),):
+    incident = db.query(Incident).filter(Incident.id == incident_id).first()
+
+    if incident is None:
+        raise HTTPException(status_code=404, detail="Incident not found")
+
+    return incident
+
+
+
