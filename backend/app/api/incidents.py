@@ -1,5 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi import File, UploadFile
 from sqlalchemy.orm import Session
+import uuid
 
 from app.db.dependencies import get_db
 from app.models.incident import Incident
@@ -7,6 +9,8 @@ from app.models.evidence import IncidentEvidence
 from app.schemas.incident import IncidentCreate, IncidentResponse, IncidentUpdate
 from app.services.incident import can_transition_status
 from app.schemas.evidence import EvidenceCreate, EvidenceResponse
+from app.clients.supabase import supabase
+
 
 
 router = APIRouter()
@@ -140,3 +144,70 @@ def get_incident_evidence(
     )
 
     return evidence
+
+@router.post(
+    "/incidents/{incident_id}/evidence/upload",
+    response_model=EvidenceResponse,
+)
+def upload_evidence(
+    incident_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    incident = (
+        db.query(Incident)
+        .filter(Incident.id == incident_id)
+        .first()
+    )
+
+    if incident is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Incident not found",
+        )
+
+    if file.content_type not in [
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+    ]:
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported image type",
+        )
+
+    file_extension = file.filename.split(".")[-1].lower()
+
+    storage_path = (
+        f"incidents/{incident_id}/{uuid.uuid4()}.{file_extension}"
+    )
+
+    file_bytes = file.file.read()
+
+    max_file_size = 10 * 1024 * 1024
+
+    if len(file_bytes) > max_file_size:
+        raise HTTPException(
+            status_code=400,
+            detail="File size must be 10 MB or less",
+        )
+
+    supabase.storage.from_("civiclens-evidence").upload(
+        storage_path,
+        file_bytes,
+        {
+            "content-type": file.content_type,
+        },
+    )
+
+    new_evidence = IncidentEvidence(
+        incident_id=incident_id,
+        storage_path=storage_path,
+        file_type=file.content_type,
+    )
+
+    db.add(new_evidence)
+    db.commit()
+    db.refresh(new_evidence)
+
+    return new_evidence
