@@ -17,3 +17,7 @@ typing_extensions==4.16.0
 uvicorn==0.52.4
 watchfiles==1.2.0
 websockets==17.0.1
+alembic==1.19.1
+psycopg[binary]==3.3.4
+SQLAlchemy==2.0.52
+supabase==2.31.0

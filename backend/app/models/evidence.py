@@ -13,7 +13,7 @@ class IncidentEvidence(Base):
 
     incident_id: Mapped[int] = mapped_column(ForeignKey("incidents.id"), nullable=False,)
 
-    file_url: Mapped[str] = mapped_column(String, nullable=False,)
+    storage_path: Mapped[str] = mapped_column( String, nullable=False,)
 
     file_type: Mapped[str] = mapped_column(String, nullable=False,)
 

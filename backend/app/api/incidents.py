@@ -9,7 +9,6 @@ from app.services.incident import can_transition_status
 from app.schemas.evidence import EvidenceCreate, EvidenceResponse
 
 
-
 router = APIRouter()
 
 @router.post("/incidents")
@@ -103,7 +102,7 @@ def create_evidence(
 
     new_evidence = IncidentEvidence(
         incident_id=incident_id,
-        file_url=evidence.file_url,
+        storage_path=evidence.storage_path,
         file_type=evidence.file_type,
     )
 
