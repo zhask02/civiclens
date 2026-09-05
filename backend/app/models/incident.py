@@ -3,7 +3,11 @@ from datetime import datetime
 from sqlalchemy import DateTime, Float, Integer, String, Text
 from sqlalchemy.types import Enum as SQLAlchemyEnum
 
-from app.enums.incident import IncidentCategory, IncidentSeverity
+from app.enums.incident import (
+    IncidentCategory,
+    IncidentSeverity,
+    IncidentStatus,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.database import Base
@@ -24,10 +28,11 @@ class Incident(Base):
         SQLAlchemyEnum(IncidentSeverity, 
                        values_callable=lambda enum_class: [item.value for item in enum_class]), nullable=True
     )
-    status: Mapped[str] = mapped_column(
-        String(50),
-        nullable=False,
-        default="submitted",
+    status: Mapped[IncidentStatus] = mapped_column(
+        SQLAlchemyEnum(IncidentStatus, 
+                       values_callable=lambda enum_class: [item.value for item in enum_class]), 
+        nullable=False, 
+        default=IncidentStatus.SUBMITTED
     )
     confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
 

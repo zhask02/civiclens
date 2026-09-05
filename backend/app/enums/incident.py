@@ -14,3 +14,10 @@ class IncidentSeverity(str, Enum):
     MEDIUM = "medium"
     HIGH = "high"
     CRITICAL = "critical"
+
+class IncidentStatus(str, Enum):
+    SUBMITTED = "submitted"
+    ANALYZED = "analyzed"
+    ASSIGNED = "assigned"
+    IN_PROGRESS = "in_progress"
+    RESOLVED = "resolved"
