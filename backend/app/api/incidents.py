@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.db.dependencies import get_db
 from app.models.incident import Incident
 from app.schemas.incident import IncidentCreate, IncidentResponse, IncidentUpdate
+from app.services.incident import can_transition_status
 
 
 router = APIRouter()
@@ -48,6 +49,15 @@ def update_incident(
         raise HTTPException(status_code=404, detail="Incident not found")
 
     update_data = incident_update.model_dump(exclude_unset=True)
+
+    if "status" in update_data:
+        new_status = update_data["status"]
+
+        if not can_transition_status(incident.status, new_status):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid status transition: {incident.status.value} -> {new_status.value}",
+            )
 
     for field, value in update_data.items():
         setattr(incident, field, value)
