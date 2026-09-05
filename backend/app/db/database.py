@@ -25,3 +25,6 @@ SessionLocal = sessionmaker(
 
 class Base(DeclarativeBase):
     pass
+
+from app.models.incident import Incident
+from app.models.evidence import IncidentEvidence
