@@ -3,8 +3,11 @@ from sqlalchemy.orm import Session
 
 from app.db.dependencies import get_db
 from app.models.incident import Incident
+from app.models.evidence import IncidentEvidence
 from app.schemas.incident import IncidentCreate, IncidentResponse, IncidentUpdate
 from app.services.incident import can_transition_status
+from app.schemas.evidence import EvidenceCreate, EvidenceResponse
+
 
 
 router = APIRouter()
@@ -76,3 +79,65 @@ def delete_incident(incident_id: int, db: Session = Depends(get_db)):
 
     db.delete(incident)
     db.commit()
+
+@router.post(
+    "/incidents/{incident_id}/evidence",
+    response_model=EvidenceResponse,
+)
+def create_evidence(
+    incident_id: int,
+    evidence: EvidenceCreate,
+    db: Session = Depends(get_db),
+):
+    incident = (
+        db.query(Incident)
+        .filter(Incident.id == incident_id)
+        .first()
+    )
+
+    if incident is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Incident not found",
+        )
+
+    new_evidence = IncidentEvidence(
+        incident_id=incident_id,
+        file_url=evidence.file_url,
+        file_type=evidence.file_type,
+    )
+
+    db.add(new_evidence)
+    db.commit()
+    db.refresh(new_evidence)
+
+    return new_evidence
+
+
+@router.get(
+    "/incidents/{incident_id}/evidence",
+    response_model=list[EvidenceResponse],
+)
+def get_incident_evidence(
+    incident_id: int,
+    db: Session = Depends(get_db),
+):
+    incident = (
+        db.query(Incident)
+        .filter(Incident.id == incident_id)
+        .first()
+    )
+
+    if incident is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Incident not found",
+        )
+
+    evidence = (
+        db.query(IncidentEvidence)
+        .filter(IncidentEvidence.incident_id == incident_id)
+        .all()
+    )
+
+    return evidence
