@@ -9,6 +9,7 @@ from alembic import context
 from dotenv import load_dotenv
 
 from app.db.database import Base
+import app.db.models
 from app.models.incident import Incident
 
 

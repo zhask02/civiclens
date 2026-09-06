@@ -20,7 +20,11 @@ from app.services.storage import (
     delete_evidence_file,
     create_evidence_signed_url,
 )
-
+from app.services.analysis import create_evidence_analysis
+from app.schemas.analysis import (
+    AnalysisCreate,
+    AnalysisResponse,
+)
 
 router = APIRouter()
 
@@ -321,3 +325,34 @@ def get_evidence_url(
     return {
         "url": url,
     }
+
+@router.post(
+    "/incidents/{incident_id}/evidence/{evidence_id}/analysis",
+    response_model=AnalysisResponse,
+)
+def create_analysis(
+    incident_id: int,
+    evidence_id: int,
+    analysis: AnalysisCreate,
+    db: Session = Depends(get_db),
+):
+    evidence = (
+        db.query(IncidentEvidence)
+        .filter(
+            IncidentEvidence.id == evidence_id,
+            IncidentEvidence.incident_id == incident_id,
+        )
+        .first()
+    )
+
+    if evidence is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Evidence not found",
+        )
+
+    return create_evidence_analysis(
+        db,
+        evidence_id,
+        analysis,
+    )
