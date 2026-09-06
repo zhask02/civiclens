@@ -8,7 +8,11 @@ from app.models.incident import Incident
 from app.models.evidence import IncidentEvidence
 from app.schemas.incident import IncidentCreate, IncidentResponse, IncidentUpdate
 from app.services.incident import can_transition_status
-from app.schemas.evidence import EvidenceCreate, EvidenceResponse
+from app.schemas.evidence import (
+    EvidenceCreate,
+    EvidenceResponse,
+    EvidenceURLResponse,
+)
 from app.clients.supabase import supabase
 
 
@@ -211,3 +215,40 @@ def upload_evidence(
     db.refresh(new_evidence)
 
     return new_evidence
+
+@router.get(
+    "/incidents/{incident_id}/evidence/{evidence_id}/url",
+    response_model=EvidenceURLResponse,
+)
+def get_evidence_url(
+    incident_id: int,
+    evidence_id: int,
+    db: Session = Depends(get_db),
+):
+    evidence = (
+        db.query(IncidentEvidence)
+        .filter(
+            IncidentEvidence.id == evidence_id,
+            IncidentEvidence.incident_id == incident_id,
+        )
+        .first()
+    )
+
+    if evidence is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Evidence not found",
+        )
+
+    signed_url_response = (
+        supabase.storage
+        .from_("civiclens-evidence")
+        .create_signed_url(
+            evidence.storage_path,
+            3600,
+        )
+    )
+
+    return {
+        "url": signed_url_response["signedURL"],
+    }

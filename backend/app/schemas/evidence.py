@@ -17,3 +17,6 @@ class EvidenceResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+class EvidenceURLResponse(BaseModel):
+    url: str
