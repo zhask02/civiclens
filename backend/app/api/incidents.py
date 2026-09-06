@@ -1,26 +1,35 @@
-from fastapi import APIRouter, Depends, HTTPException
-from fastapi import File, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
-import uuid
 
 from app.db.dependencies import get_db
 from app.models.incident import Incident
 from app.models.evidence import IncidentEvidence
-from app.schemas.incident import IncidentCreate, IncidentResponse, IncidentUpdate
-from app.services.incident import can_transition_status
+from app.schemas.incident import (
+    IncidentCreate,
+    IncidentResponse,
+    IncidentUpdate,
+)
 from app.schemas.evidence import (
     EvidenceCreate,
     EvidenceResponse,
     EvidenceURLResponse,
 )
-from app.clients.supabase import supabase
-
+from app.services.incident import can_transition_status
+from app.services.storage import (
+    upload_evidence_file,
+    delete_evidence_file,
+    create_evidence_signed_url,
+)
 
 
 router = APIRouter()
 
+
 @router.post("/incidents")
-def create_incident(incident: IncidentCreate, db: Session = Depends(get_db),):
+def create_incident(
+    incident: IncidentCreate,
+    db: Session = Depends(get_db),
+):
     new_incident = Incident(
         description=incident.description,
         latitude=incident.latitude,
@@ -33,40 +42,74 @@ def create_incident(incident: IncidentCreate, db: Session = Depends(get_db),):
 
     return new_incident
 
+
 @router.get("/incidents", response_model=list[IncidentResponse])
 def get_incidents(db: Session = Depends(get_db)):
     incidents = db.query(Incident).all()
     return incidents
 
-@router.get("/incidents/{incident_id}", response_model=IncidentResponse)
-def get_incident(incident_id: int, db: Session = Depends(get_db),):
-    incident = db.query(Incident).filter(Incident.id == incident_id).first()
+
+@router.get(
+    "/incidents/{incident_id}",
+    response_model=IncidentResponse,
+)
+def get_incident(
+    incident_id: int,
+    db: Session = Depends(get_db),
+):
+    incident = (
+        db.query(Incident)
+        .filter(Incident.id == incident_id)
+        .first()
+    )
 
     if incident is None:
-        raise HTTPException(status_code=404, detail="Incident not found")
+        raise HTTPException(
+            status_code=404,
+            detail="Incident not found",
+        )
 
     return incident
 
-@router.patch("/incidents/{incident_id}", response_model=IncidentResponse)
+
+@router.patch(
+    "/incidents/{incident_id}",
+    response_model=IncidentResponse,
+)
 def update_incident(
     incident_id: int,
     incident_update: IncidentUpdate,
     db: Session = Depends(get_db),
 ):
-    incident = db.query(Incident).filter(Incident.id == incident_id).first()
+    incident = (
+        db.query(Incident)
+        .filter(Incident.id == incident_id)
+        .first()
+    )
 
     if incident is None:
-        raise HTTPException(status_code=404, detail="Incident not found")
+        raise HTTPException(
+            status_code=404,
+            detail="Incident not found",
+        )
 
-    update_data = incident_update.model_dump(exclude_unset=True)
+    update_data = incident_update.model_dump(
+        exclude_unset=True
+    )
 
     if "status" in update_data:
         new_status = update_data["status"]
 
-        if not can_transition_status(incident.status, new_status):
+        if not can_transition_status(
+            incident.status,
+            new_status,
+        ):
             raise HTTPException(
                 status_code=400,
-                detail=f"Invalid status transition: {incident.status.value} -> {new_status.value}",
+                detail=(
+                    f"Invalid status transition: "
+                    f"{incident.status.value} -> {new_status.value}"
+                ),
             )
 
     for field, value in update_data.items():
@@ -77,15 +120,30 @@ def update_incident(
 
     return incident
 
-@router.delete("/incidents/{incident_id}", status_code=204)
-def delete_incident(incident_id: int, db: Session = Depends(get_db)):
-    incident = db.query(Incident).filter(Incident.id == incident_id).first()
+
+@router.delete(
+    "/incidents/{incident_id}",
+    status_code=204,
+)
+def delete_incident(
+    incident_id: int,
+    db: Session = Depends(get_db),
+):
+    incident = (
+        db.query(Incident)
+        .filter(Incident.id == incident_id)
+        .first()
+    )
 
     if incident is None:
-        raise HTTPException(status_code=404, detail="Incident not found")
+        raise HTTPException(
+            status_code=404,
+            detail="Incident not found",
+        )
 
     db.delete(incident)
     db.commit()
+
 
 @router.post(
     "/incidents/{incident_id}/evidence",
@@ -143,11 +201,14 @@ def get_incident_evidence(
 
     evidence = (
         db.query(IncidentEvidence)
-        .filter(IncidentEvidence.incident_id == incident_id)
+        .filter(
+            IncidentEvidence.incident_id == incident_id
+        )
         .all()
     )
 
     return evidence
+
 
 @router.post(
     "/incidents/{incident_id}/evidence/upload",
@@ -182,10 +243,6 @@ def upload_evidence(
 
     file_extension = file.filename.split(".")[-1].lower()
 
-    storage_path = (
-        f"incidents/{incident_id}/{uuid.uuid4()}.{file_extension}"
-    )
-
     file_bytes = file.file.read()
 
     max_file_size = 10 * 1024 * 1024
@@ -196,13 +253,14 @@ def upload_evidence(
             detail="File size must be 10 MB or less",
         )
 
+    storage_path = None
+
     try:
-        supabase.storage.from_("civiclens-evidence").upload(
-            storage_path,
+        storage_path = upload_evidence_file(
+            incident_id,
             file_bytes,
-            {
-                "content-type": file.content_type,
-            },
+            file_extension,
+            file.content_type,
         )
 
         new_evidence = IncidentEvidence(
@@ -220,17 +278,17 @@ def upload_evidence(
     except Exception:
         db.rollback()
 
-        try:
-            supabase.storage.from_("civiclens-evidence").remove(
-                [storage_path]
-            )
-        except Exception:
-            pass
+        if storage_path is not None:
+            try:
+                delete_evidence_file(storage_path)
+            except Exception:
+                pass
 
         raise HTTPException(
             status_code=500,
             detail="Failed to upload evidence",
         )
+
 
 @router.get(
     "/incidents/{incident_id}/evidence/{evidence_id}/url",
@@ -256,15 +314,10 @@ def get_evidence_url(
             detail="Evidence not found",
         )
 
-    signed_url_response = (
-        supabase.storage
-        .from_("civiclens-evidence")
-        .create_signed_url(
-            evidence.storage_path,
-            3600,
-        )
+    url = create_evidence_signed_url(
+        evidence.storage_path,
     )
 
     return {
-        "url": signed_url_response["signedURL"],
+        "url": url,
     }
