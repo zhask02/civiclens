@@ -196,25 +196,41 @@ def upload_evidence(
             detail="File size must be 10 MB or less",
         )
 
-    supabase.storage.from_("civiclens-evidence").upload(
-        storage_path,
-        file_bytes,
-        {
-            "content-type": file.content_type,
-        },
-    )
+    try:
+        supabase.storage.from_("civiclens-evidence").upload(
+            storage_path,
+            file_bytes,
+            {
+                "content-type": file.content_type,
+            },
+        )
 
-    new_evidence = IncidentEvidence(
-        incident_id=incident_id,
-        storage_path=storage_path,
-        file_type=file.content_type,
-    )
+        new_evidence = IncidentEvidence(
+            incident_id=incident_id,
+            storage_path=storage_path,
+            file_type=file.content_type,
+        )
 
-    db.add(new_evidence)
-    db.commit()
-    db.refresh(new_evidence)
+        db.add(new_evidence)
+        db.commit()
+        db.refresh(new_evidence)
 
-    return new_evidence
+        return new_evidence
+
+    except Exception:
+        db.rollback()
+
+        try:
+            supabase.storage.from_("civiclens-evidence").remove(
+                [storage_path]
+            )
+        except Exception:
+            pass
+
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to upload evidence",
+        )
 
 @router.get(
     "/incidents/{incident_id}/evidence/{evidence_id}/url",
