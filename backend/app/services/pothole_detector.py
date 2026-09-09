@@ -1,6 +1,6 @@
 from io import BytesIO
 
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 from ultralytics import YOLO
 
 from app.schemas.vision import (
@@ -11,12 +11,18 @@ from app.schemas.vision import (
 from app.services.vision import VisionModel
 
 
+CONFIDENCE_THRESHOLD = 0.40
+
+
 class PotholeDetector(VisionModel):
     def __init__(self, model_path: str):
         self.model = YOLO(model_path)
 
     def analyze(self, image_bytes: bytes) -> VisionPrediction:
-        image = Image.open(BytesIO(image_bytes))
+        try:
+            image = Image.open(BytesIO(image_bytes))
+        except (UnidentifiedImageError, OSError):
+            raise ValueError("Invalid or corrupted image")
 
         results = self.model(image)
 
@@ -25,6 +31,10 @@ class PotholeDetector(VisionModel):
         for result in results:
             for box in result.boxes:
                 confidence = float(box.conf[0])
+
+                if confidence < CONFIDENCE_THRESHOLD:
+                    continue
+
                 class_id = int(box.cls[0])
 
                 x_min, y_min, x_max, y_max = map(
@@ -52,8 +62,8 @@ class PotholeDetector(VisionModel):
         )
 
         return VisionPrediction(
-            category="pothole",
-            severity="medium",
+            category="pothole" if detections else None,
+            severity="medium" if detections else None,
             confidence=highest_confidence,
             model_name="yolo26-pothole",
             detections=detections,

@@ -20,8 +20,8 @@ class VisionDetection(BaseModel):
 
 
 class VisionPrediction(BaseModel):
-    category: IncidentCategory
-    severity: IncidentSeverity
+    category: IncidentCategory | None
+    severity: IncidentSeverity | None
     confidence: float = Field(
         ge=0,
         le=1,
