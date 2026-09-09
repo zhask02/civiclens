@@ -1,39 +1,9 @@
 # Environment variables and secrets
 .env
-.env.*
-!.env.example
 
-# Python
+# Python cache
 __pycache__/
-*.py[cod]
-*.pyo
-*.pyd
-.venv/
-venv/
+*.pyc
 
-# Node.js
-node_modules/
-.next/
-out/
-
-# IDE
-.vscode/
-
-# Operating system
-.DS_Store
-Thumbs.db
-
-# Logs
-*.log
-
-# Coverage
-.coverage
-htmlcov/
-
-# Build artifacts
-dist/
-build/
-
-# Local storage/data
-data/
-uploads/
+# ML model weights
+ml/weights/
