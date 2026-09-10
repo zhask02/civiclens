@@ -11,3 +11,6 @@ ml/weights/
 # Local CV testing
 test_images/
 test_pothole_model.py
+
+# Local evaluation dataset is too large and should not be committed.
+evaluation/dataset/

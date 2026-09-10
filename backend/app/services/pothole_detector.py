@@ -10,7 +10,7 @@ from app.schemas.vision import (
 )
 from app.services.vision import VisionModel
 
-
+# Provisional threshold; tune on held-out validation data.
 CONFIDENCE_THRESHOLD = 0.40
 
 
@@ -21,6 +21,9 @@ class PotholeDetector(VisionModel):
     def analyze(self, image_bytes: bytes) -> VisionPrediction:
         try:
             image = Image.open(BytesIO(image_bytes))
+            image.verify()  # Verify that the image is not corrupted
+
+            image = Image.open(BytesIO(image_bytes))  # Reopen the image for processing
         except (UnidentifiedImageError, OSError):
             raise ValueError("Invalid or corrupted image")
 
