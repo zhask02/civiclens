@@ -22,3 +22,7 @@ psycopg[binary]==3.3.4
 SQLAlchemy==2.0.52
 supabase==2.31.0
 python-multipart==0.0.32
+# Redis client for caching geospatial lookups.
+redis
+# HTTP client for communicating with external geocoding providers.
+httpx

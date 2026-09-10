@@ -1,0 +1,15 @@
+services:
+  redis:
+    # Official Redis image; Redis provides the cache for geospatial lookups.
+    image: redis:7-alpine
+
+    # Give the container a stable name so it is easy to recognize in Docker.
+    container_name: civiclens-redis
+
+    # Expose Redis on localhost so our FastAPI application can connect to it.
+    ports:
+      - "6379:6379"
+
+    # Restart Redis automatically if the container stops unexpectedly.
+    restart: unless-stopped
+    
