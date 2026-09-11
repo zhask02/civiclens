@@ -1,14 +1,126 @@
+import json
+
+from app.clients.geocoding import GeocodingClient
+from app.clients.redis import redis_client
 from app.schemas.location import CivicContext, LocationContext
 
 
 class LocationContextService:
     """
-    Converts geocoding-provider responses into CivicLens location context.
+    Coordinates location lookups for CivicLens.
 
-    The service contains CivicLens-specific interpretation logic while
-    the GeocodingClient remains responsible only for communicating with
-    the external provider.
+    Redis is used as a cache so repeated reports near the same coordinates
+    do not repeatedly call the external Nominatim service.
     """
+
+    CACHE_PREFIX = "location:reverse:"
+    CACHE_TTL_SECONDS = 24 * 60 * 60
+
+    def __init__(
+        self,
+        geocoding_client: GeocodingClient | None = None,
+    ) -> None:
+        # Allow tests to inject a fake geocoding client without making
+        # real network requests.
+        self.geocoding_client = geocoding_client or GeocodingClient()
+
+    @staticmethod
+    def _normalize_coordinates(
+        latitude: float,
+        longitude: float,
+    ) -> tuple[float, float]:
+        """
+        Normalize GPS coordinates before creating a cache key.
+
+        Five decimal places correspond to roughly metre-level latitude
+        precision, which avoids creating separate cache entries for tiny
+        GPS variations while keeping nearby roads distinct.
+        """
+
+        return round(latitude, 5), round(longitude, 5)
+
+    def _build_cache_key(
+        self,
+        latitude: float,
+        longitude: float,
+    ) -> str:
+        """
+        Build a deterministic Redis key for a geographic location.
+        """
+
+        latitude, longitude = self._normalize_coordinates(
+            latitude,
+            longitude,
+        )
+
+        return f"{self.CACHE_PREFIX}{latitude}:{longitude}"
+
+    def get_context(
+        self,
+        latitude: float,
+        longitude: float,
+    ) -> LocationContext:
+        """
+        Retrieve geographic context using Redis caching.
+
+        Cache hit:
+            Return the cached provider response.
+
+        Cache miss:
+            Query Nominatim, cache its response, then parse it into
+            the CivicLens location schema.
+        """
+
+        cache_key = self._build_cache_key(
+            latitude,
+            longitude,
+        )
+
+        # Check Redis before contacting the external provider.
+        cached_response = redis_client.get(cache_key)
+
+        if cached_response is not None:
+            try:
+                # Redis normally returns a string because our client uses
+                # decode_responses=True, but support bytes defensively as well.
+                if isinstance(cached_response, bytes):
+                    cached_response = cached_response.decode("utf-8")
+
+                response = json.loads(cached_response)
+
+                # Only use the cache when it contains a JSON object suitable
+                # for the location parser.
+                if isinstance(response, dict):
+                    return self.parse_response(
+                        latitude=latitude,
+                        longitude=longitude,
+                        response=response,
+                    )
+
+            except (UnicodeDecodeError, json.JSONDecodeError):
+                # A corrupted cache entry should never prevent a fresh lookup.
+                # We simply treat it as a cache miss and refresh the data below.
+                pass
+
+        # No cached result exists, so contact Nominatim.
+        response = self.geocoding_client.reverse(
+            latitude=latitude,
+            longitude=longitude,
+        )
+
+        # Cache the raw provider response rather than our interpreted
+        # schema so we retain the original geographic evidence.
+        redis_client.setex(
+            cache_key,
+            self.CACHE_TTL_SECONDS,
+            json.dumps(response),
+        )
+
+        return self.parse_response(
+            latitude=latitude,
+            longitude=longitude,
+            response=response,
+        )
 
     def parse_response(
         self,
@@ -36,7 +148,9 @@ class LocationContextService:
         # Highway and amenity values can appear in different places
         # depending on the returned OSM object.
         osm_highway = address.get("highway")
-        osm_amenity = response.get("amenity")
+        # Nominatim may expose amenity information either at the top level
+        # or inside the nested address object, depending on the response.
+        osm_amenity = response.get("amenity") or address.get("amenity")
 
         # The road is generally exposed through the reverse-geocoded
         # address even when the nearest OSM object itself is not a highway.
