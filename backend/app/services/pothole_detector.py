@@ -64,9 +64,10 @@ class PotholeDetector(VisionModel):
             else 0.0
         )
 
+        # Return only visual evidence. Severity is intentionally calculated
+        # later by the dedicated SeverityEngine.
         return VisionPrediction(
             category="pothole" if detections else None,
-            severity="medium" if detections else None,
             confidence=highest_confidence,
             model_name="yolo26-pothole",
             detections=detections,

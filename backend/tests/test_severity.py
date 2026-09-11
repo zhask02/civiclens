@@ -46,8 +46,11 @@ def make_prediction(boxes, confidence=0.9):
     )
 
 
-def test_no_potholes_returns_low():
-    """No detections should never be treated as a severe pothole."""
+def test_no_potholes_returns_no_severity():
+    """
+    No detections mean there is no pothole whose severity can be assessed.
+    This must not be interpreted as a LOW-severity pothole.
+    """
 
     prediction = make_prediction([])
 
@@ -57,7 +60,10 @@ def test_no_potholes_returns_low():
         IMAGE_HEIGHT,
     )
 
-    assert result.severity == IncidentSeverity.LOW
+    # No pothole means severity is undefined for this incident.
+    assert result.severity is None
+
+    # A zero score confirms that no severity risk was calculated.
     assert result.score == 0.0
 
 

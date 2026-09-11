@@ -15,7 +15,7 @@ class SeverityAssessment:
     """
 
     score: float
-    severity: IncidentSeverity
+    severity: IncidentSeverity | None
     reasons: list[str]
 
 
@@ -40,7 +40,7 @@ class SeverityEngine:
         if not prediction.detections:
             return SeverityAssessment(
                 score=0.0,
-                severity=IncidentSeverity.LOW,
+                severity=None,
                 reasons=["No potholes detected"],
             )
 
