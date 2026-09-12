@@ -5,6 +5,8 @@ import pytest
 from app.services.duplicate import (
     haversine_distance_meters,
     time_difference_hours,
+    DuplicateService,
+    DuplicateStatus,
 )
 
 
@@ -157,3 +159,163 @@ def test_time_difference_handles_minutes():
     )
 
     assert difference == pytest.approx(0.5)
+
+def test_close_recent_incidents_are_duplicates():
+    """
+    Very close reports submitted shortly apart should receive strong
+    duplicate evidence from both geographic and temporal signals.
+    """
+
+    service = DuplicateService()
+
+    first = datetime(
+        2026,
+        9,
+        12,
+        10,
+        0,
+        tzinfo=timezone.utc,
+    )
+
+    second = first + timedelta(minutes=30)
+
+    assessment = service.assess(
+        12.8406,
+        80.1534,
+        first,
+        12.84065,
+        80.15345,
+        second,
+    )
+
+    assert assessment.status == DuplicateStatus.DUPLICATE
+    assert assessment.score == pytest.approx(100.0)
+    assert assessment.location_score == 100.0
+    assert assessment.time_score == 100.0
+
+
+def test_moderately_close_incidents_are_related():
+    """
+    Reports within roughly 50 m and several hours apart should retain
+    meaningful relationship evidence without being treated as certain
+    duplicates.
+    """
+
+    service = DuplicateService()
+
+    first = datetime(
+        2026,
+        9,
+        12,
+        10,
+        0,
+        tzinfo=timezone.utc,
+    )
+
+    second = first + timedelta(hours=6)
+
+    assessment = service.assess(
+        12.8406,
+        80.1534,
+        first,
+        12.8409,
+        80.1534,
+        second,
+    )
+
+    assert assessment.status == DuplicateStatus.RELATED
+    assert assessment.score == pytest.approx(72.0)
+
+
+def test_distant_incidents_are_separate():
+    """
+    Reports more than 100 m apart should receive no geographic
+    similarity even when they were submitted at the same time.
+    """
+
+    service = DuplicateService()
+
+    timestamp = datetime(
+        2026,
+        9,
+        12,
+        10,
+        0,
+        tzinfo=timezone.utc,
+    )
+
+    assessment = service.assess(
+        12.8406,
+        80.1534,
+        timestamp,
+        12.8420,
+        80.1534,
+        timestamp,
+    )
+
+    assert assessment.status == DuplicateStatus.SEPARATE
+    assert assessment.location_score == 0.0
+    assert assessment.time_score == 100.0
+
+
+def test_old_reports_do_not_become_duplicates_from_location_alone():
+    """
+    A geographically close report from several days earlier should
+    receive weaker temporal evidence rather than being treated as an
+    automatic duplicate.
+    """
+
+    service = DuplicateService()
+
+    first = datetime(
+        2026,
+        9,
+        5,
+        10,
+        0,
+        tzinfo=timezone.utc,
+    )
+
+    second = first + timedelta(days=4)
+
+    assessment = service.assess(
+        12.8406,
+        80.1534,
+        first,
+        12.84065,
+        80.15345,
+        second,
+    )
+
+    assert assessment.status == DuplicateStatus.RELATED
+    assert assessment.location_score == 100.0
+    assert assessment.time_score == 0.0
+    assert assessment.score == pytest.approx(60.0)
+
+
+def test_assessment_contains_explanations():
+    """Every assessment should expose human-readable supporting evidence."""
+
+    service = DuplicateService()
+
+    timestamp = datetime(
+        2026,
+        9,
+        12,
+        10,
+        0,
+        tzinfo=timezone.utc,
+    )
+
+    assessment = service.assess(
+        12.8406,
+        80.1534,
+        timestamp,
+        12.8406,
+        80.1534,
+        timestamp,
+    )
+
+    assert len(assessment.reasons) == 2
+    assert "m apart" in assessment.reasons[0]
+    assert "hours apart" in assessment.reasons[1]
