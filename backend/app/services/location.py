@@ -2,7 +2,8 @@ import json
 
 from app.clients.geocoding import GeocodingClient
 from app.clients.redis import redis_client
-from app.schemas.location import CivicContext, LocationContext
+from app.schemas.location import LocationContext
+from app.services.location_context import CivicContextInterpreter
 
 
 class LocationContextService:
@@ -165,13 +166,15 @@ class LocationContextService:
         postcode = address.get("postcode")
         country = address.get("country")
 
-        # Start with no CivicLens-specific interpretation.
-        civic_context = CivicContext.UNKNOWN
-
-        # A parking OSM object is strong evidence that the incident is
-        # associated with a parking area.
-        if osm_type == "parking" or osm_amenity == "parking":
-            civic_context = CivicContext.PARKING
+        # Let the dedicated interpreter translate OSM evidence into a
+        # CivicLens-specific operational context.
+        #
+        # The parser remains responsible for extracting provider data,
+        # while CivicContextInterpreter owns CivicLens's business rules.
+        civic_context = CivicContextInterpreter.interpret(
+            osm_type=osm_type,
+            osm_amenity=osm_amenity,
+        )
 
         return LocationContext(
             latitude=latitude,
