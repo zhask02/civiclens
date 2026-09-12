@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
-from pathlib import Path
 
+from app.config import get_pothole_model_path
 from app.db.dependencies import get_db
 from app.models.incident import Incident
 from app.models.evidence import IncidentEvidence
@@ -345,13 +345,13 @@ def create_analysis(
     are all calculated by the server-side analysis service.
     """
 
-    # Resolve the model path from the project root so the application
-    # works regardless of whether Uvicorn is launched from backend/ or root.
-    project_root = Path(__file__).resolve().parents[3]
+    # Get the configured model path from the central application
+    # configuration instead of hard-coding the ML weights location
+    # inside the API endpoint.
+    model_path = get_pothole_model_path()
 
-    detector = PotholeDetector(
-        str(project_root / "ml" / "weights" / "yolo26_best.pt")
-    )
+    # Create the pothole detector using the configured model.
+    detector = PotholeDetector(model_path)
 
     analysis_service = AnalysisService(
         detector=detector,
