@@ -1,4 +1,4 @@
-from app.enums.incident import IncidentSeverity
+from app.enums.incident import IncidentSeverity, PriorityLevel
 from app.schemas.location import CivicContext
 from app.schemas.priority import PriorityResult
 
@@ -83,19 +83,25 @@ class PriorityEngine:
             requires_review=requires_review,
         )
 
+    # Convert the numerical priority score into the separate operational
+    # priority vocabulary used by CivicLens.
     @staticmethod
-    def _score_to_level(score: float) -> IncidentSeverity:
+    def _score_to_level(score: float) -> PriorityLevel:
         """
-        Convert a bounded numerical score into an operational level.
+        Convert a bounded numerical score into an operational priority level.
         """
 
+        # Very high scores represent incidents that should be handled urgently.
         if score >= 85:
-            return IncidentSeverity.CRITICAL
+            return PriorityLevel.CRITICAL
 
+        # High scores represent significant operational urgency.
         if score >= 70:
-            return IncidentSeverity.HIGH
+            return PriorityLevel.HIGH
 
+        # Moderate scores require normal prioritization.
         if score >= 40:
-            return IncidentSeverity.MEDIUM
+            return PriorityLevel.MEDIUM
 
-        return IncidentSeverity.LOW
+        # Everything below 40 is ordinary/low operational priority.
+        return PriorityLevel.LOW

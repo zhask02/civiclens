@@ -47,3 +47,20 @@ def create_evidence_signed_url(
     )
 
     return response["signedURL"]
+
+def download_evidence_file(storage_path: str) -> bytes:
+    """
+    Download an evidence image from Supabase Storage.
+
+    The analysis pipeline works with raw image bytes so that the
+    detector does not need to know anything about Supabase or URLs.
+    """
+
+    # Ask the private evidence bucket for the stored file.
+    response = (
+        supabase.storage
+        .from_(BUCKET_NAME)
+        .download(storage_path)
+    )
+
+    return response

@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
+from pathlib import Path
 
 from app.db.dependencies import get_db
 from app.models.incident import Incident
@@ -20,11 +21,12 @@ from app.services.storage import (
     delete_evidence_file,
     create_evidence_signed_url,
 )
-from app.services.analysis import create_evidence_analysis
-from app.schemas.analysis import (
-    AnalysisCreate,
-    AnalysisResponse,
-)
+
+from app.services.analysis import AnalysisService
+
+from app.schemas.analysis import AnalysisResponse
+
+from app.services.pothole_detector import PotholeDetector
 
 router = APIRouter()
 
@@ -333,26 +335,41 @@ def get_evidence_url(
 def create_analysis(
     incident_id: int,
     evidence_id: int,
-    analysis: AnalysisCreate,
     db: Session = Depends(get_db),
 ):
-    evidence = (
-        db.query(IncidentEvidence)
-        .filter(
-            IncidentEvidence.id == evidence_id,
-            IncidentEvidence.incident_id == incident_id,
-        )
-        .first()
+    """
+    Analyze one piece of incident evidence using the CivicLens pipeline.
+
+    The API endpoint intentionally accepts no analysis values from the
+    caller. Detection, severity, location interpretation, and priority
+    are all calculated by the server-side analysis service.
+    """
+
+    # Resolve the model path from the project root so the application
+    # works regardless of whether Uvicorn is launched from backend/ or root.
+    project_root = Path(__file__).resolve().parents[3]
+
+    detector = PotholeDetector(
+        str(project_root / "ml" / "weights" / "yolo26_best.pt")
     )
 
-    if evidence is None:
+    analysis_service = AnalysisService(
+        detector=detector,
+    )
+
+    try:
+        # Run the complete pipeline and persist the resulting analysis.
+        return analysis_service.analyze_and_persist(
+            db=db,
+            incident_id=incident_id,
+            evidence_id=evidence_id,
+        )
+
+    except ValueError as exc:
+        # The analysis service currently uses ValueError for expected
+        # application-level failures such as missing evidence or a
+        # submission where no pothole was detected.
         raise HTTPException(
-            status_code=404,
-            detail="Evidence not found",
+            status_code=422,
+            detail=str(exc),
         )
-
-    return create_evidence_analysis(
-        db,
-        evidence_id,
-        analysis,
-    )
