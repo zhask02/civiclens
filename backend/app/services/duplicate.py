@@ -1,3 +1,4 @@
+from datetime import datetime
 from math import asin, cos, radians, sin, sqrt
 
 
@@ -47,3 +48,27 @@ def haversine_distance_meters(
 
     # Multiply by Earth's radius to obtain the distance in metres.
     return EARTH_RADIUS_METERS * c
+
+
+def time_difference_hours(
+    timestamp_1: datetime,
+    timestamp_2: datetime,
+) -> float:
+    """
+    Calculate the absolute time difference between two incident timestamps.
+
+    Returning the absolute difference means the function does not care
+    which incident was submitted first. Duplicate detection can therefore
+    compare incidents in either order.
+
+    Returns:
+        Time difference in hours.
+    """
+
+    # timedelta.total_seconds() gives us an exact duration, which we
+    # convert to hours for the duplicate-detection rules.
+    difference = abs(
+        (timestamp_1 - timestamp_2).total_seconds()
+    )
+
+    return difference / 3600.0
