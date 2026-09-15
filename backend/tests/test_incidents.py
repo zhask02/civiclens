@@ -19,6 +19,7 @@ from app.schemas.analysis import (
 )
 from app.schemas.priority import PriorityLevel
 from app.enums.incident import IncidentSeverity
+from app.enums.incident import IncidentStatus
 
 
 class FakeAnalysisService:
@@ -84,6 +85,49 @@ class FakeDetector:
         # Store the path so the test can confirm construction succeeded.
         self.model_path = model_path
 
+class FakeIncidentQuery:
+    """
+    Minimal database-query fake for testing the incident endpoint.
+
+    The real endpoint uses SQLAlchemy's query/filter/first chain.
+    This fake reproduces only that small interface so the test can
+    exercise the HTTP route without requiring a real database.
+    """
+
+    def __init__(self, incident):
+        self.incident = incident
+
+    def filter(self, *args):
+        # The endpoint's filter expression is handled by returning the
+        # incident supplied by the test.
+        return self
+
+    def first(self):
+        # Return the fake incident exactly as a real query would return
+        # the matching database record.
+        return self.incident
+
+
+class FakeIncidentDB:
+    """
+    Minimal database session fake for incident lifecycle API tests.
+    """
+
+    def __init__(self, incident):
+        self.incident = incident
+
+    def query(self, model):
+        # Return a query object containing our controlled test incident.
+        return FakeIncidentQuery(self.incident)
+
+    def commit(self):
+        # The test does not need real persistence.
+        pass
+
+    def refresh(self, incident):
+        # The endpoint refreshes the object after committing.
+        # Nothing needs to happen in the fake database.
+        pass
 
 def test_analysis_endpoint_returns_complete_analysis_response(monkeypatch):
     """
@@ -147,4 +191,152 @@ def test_analysis_endpoint_returns_complete_analysis_response(monkeypatch):
     finally:
         # Always remove the dependency override so it cannot leak into
         # other tests in the same pytest process.
+        app.dependency_overrides.clear()
+
+def test_update_incident_allows_valid_status_transition(monkeypatch):
+    """
+    Verify that the API allows a status transition that follows the
+    CivicLens incident lifecycle.
+    """
+
+    incident = type(
+        "FakeIncident",
+        (),
+        {
+            "id": 10,
+            "description": "Large pothole near the main gate",
+            "latitude": 12.9716,
+            "longitude": 77.5946,
+            "category": None,
+            "severity": None,
+            "status": IncidentStatus.SUBMITTED,
+            "confidence": None,
+            "created_at": datetime(2026, 9, 16, 12, 0, 0),
+        },
+    )()
+
+    app.dependency_overrides[incidents_api.get_db] = (
+        lambda: FakeIncidentDB(incident)
+    )
+
+    try:
+        client = TestClient(app)
+
+        response = client.patch(
+            "/incidents/10",
+            json={"status": "analyzed"},
+        )
+
+        # The transition SUBMITTED → ANALYZED is valid.
+        assert response.status_code == 200
+
+        # Confirm that the endpoint actually changed the incident state.
+        assert incident.status == IncidentStatus.ANALYZED
+
+        data = response.json()
+
+        # Confirm FastAPI serialized the updated status correctly.
+        assert data["status"] == "analyzed"
+
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_update_incident_rejects_invalid_status_transition():
+    """
+    Verify that the API rejects a transition that skips lifecycle stages.
+    """
+
+    incident = type(
+        "FakeIncident",
+        (),
+        {
+            "id": 10,
+            "description": "Large pothole near the main gate",
+            "latitude": 12.9716,
+            "longitude": 77.5946,
+            "category": None,
+            "severity": None,
+            "status": IncidentStatus.SUBMITTED,
+            "confidence": None,
+            "created_at": datetime(2026, 9, 16, 12, 0, 0),
+        },
+    )()
+
+    app.dependency_overrides[incidents_api.get_db] = (
+        lambda: FakeIncidentDB(incident)
+    )
+
+    try:
+        client = TestClient(app)
+
+        response = client.patch(
+            "/incidents/10",
+            json={"status": "resolved"},
+        )
+
+        # SUBMITTED → RESOLVED skips ANALYZED, ASSIGNED, and IN_PROGRESS.
+        assert response.status_code == 400
+
+        assert "Invalid status transition" in response.json()["detail"]
+
+        # Make sure the invalid request did not mutate the incident.
+        assert incident.status == IncidentStatus.SUBMITTED
+
+    finally:
+        app.dependency_overrides.clear()
+
+def test_update_incident_does_not_accept_ai_generated_fields():
+    """
+    Verify that clients cannot manually update AI-generated fields.
+
+    Category, severity, and confidence are produced by the analysis
+    pipeline. The incident PATCH API should therefore ignore/reject
+    those fields rather than allowing a client to overwrite them.
+    """
+
+    incident = type(
+        "FakeIncident",
+        (),
+        {
+            "id": 10,
+            "description": "Large pothole near the main gate",
+            "latitude": 12.9716,
+            "longitude": 77.5946,
+            "category": None,
+            "severity": None,
+            "status": IncidentStatus.SUBMITTED,
+            "confidence": None,
+            "created_at": datetime(2026, 9, 16, 12, 0, 0),
+        },
+    )()
+
+    app.dependency_overrides[incidents_api.get_db] = (
+        lambda: FakeIncidentDB(incident)
+    )
+
+    try:
+        client = TestClient(app)
+
+        response = client.patch(
+            "/incidents/10",
+            json={
+                "severity": "critical",
+                "confidence": 0.99,
+            },
+        )
+
+        # The request contains no fields accepted by IncidentUpdate,
+        # so the endpoint should not modify the incident.
+        assert response.status_code == 200
+
+        assert incident.severity is None
+        assert incident.confidence is None
+
+        data = response.json()
+
+        assert data["severity"] is None
+        assert data["confidence"] is None
+
+    finally:
         app.dependency_overrides.clear()

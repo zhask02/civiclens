@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from app.enums.incident import IncidentCategory, IncidentSeverity, IncidentStatus
+from app.enums.incident import IncidentStatus
 
 class IncidentCreate(BaseModel):
     description: str = Field(
@@ -37,7 +37,12 @@ class IncidentResponse(BaseModel):
     }
 
 class IncidentUpdate(BaseModel):
-    category: IncidentCategory | None = None
-    severity: IncidentSeverity | None = None
+    """
+    Fields that operators are allowed to update manually.
+
+    AI-generated fields such as category, severity, and confidence are
+    intentionally excluded. Those values must come from the CivicLens
+    analysis pipeline rather than being supplied by an API client.
+    """
+
     status: IncidentStatus | None = None
-    confidence: float | None = None
