@@ -5,705 +5,1300 @@
 ## 1. Project Overview
 
 **Project Name:** CivicLens  
-**Tagline:** AI-powered urban infrastructure intelligence platform.
+**Tagline:** AI-powered pothole intelligence platform.
 
-CivicLens allows citizens or operators to submit photos of urban infrastructure problems such as potholes, garbage accumulation, damaged signs, fallen trees, blocked drains, and similar issues.
+CivicLens v1 is a focused, end-to-end platform for reporting, analyzing,
+prioritizing, and managing **pothole incidents**.
 
-The system will use AI, geospatial information, real-world APIs, retrieval, and a prioritization engine to:
+The project deliberately starts with one civic issue instead of attempting
+to solve every infrastructure problem at once. Other categories such as
+garbage, drainage, streetlights, and water leaks are future extensions.
 
-1. Analyze the submitted image.
-2. Identify the type of infrastructure issue.
-3. Estimate severity and risk.
-4. Use location and surrounding context.
-5. Check for duplicate reports.
-6. Retrieve relevant procedures/documents.
-7. Generate an evidence-backed incident report.
-8. Help operators prioritize what should be fixed first.
+The goal is to demonstrate real AI/backend engineering rather than a simple
+image-classification demo.
 
 ---
 
-# 2. Core Product Vision
+# 2. V1 Product Scope
 
-This is **not** just an "upload an image and get an AI prediction" demo.
+CivicLens v1 should provide:
 
-CivicLens should demonstrate real software engineering:
+1. Pothole incident reporting
+2. Image/evidence upload
+3. Location capture and enrichment
+4. Local pothole detection
+5. Structured visual predictions
+6. Explainable severity estimation
+7. Duplicate/related report detection
+8. Deterministic priority scoring
+9. Incident lifecycle management
+10. Operator/admin dashboard
+11. Geographic visualization
+12. Deployment
+13. Testing and demonstration polish
 
-- Frontend application
-- Backend APIs
-- Database design
-- Authentication
-- Object storage
-- Background processing
-- Caching
-- Message/job queues
-- AI model inference
-- Vector search
-- Retrieval-Augmented Generation
-- External APIs
-- Geospatial queries
-- Error handling and retries
-- Logging and observability
-- Docker and deployment
-- Scalable architecture
-
-The goal is to build an end-to-end, production-oriented system that is portfolio-worthy for software engineering and AI/ML-oriented roles.
-
----
-
-# 3. Planned AI Capabilities
-
-We will focus on a small number of tasks and integrate them deeply.
-
-## 3.1 Object Detection
-
-Potential uses:
-
-- Potholes
-- Garbage piles
-- Damaged signs
-- Vehicles
-- Fallen trees
-- Barriers
-- Other infrastructure objects
-
-Output should include:
-
-- Detected class
-- Confidence
-- Bounding boxes
-
-## 3.2 Image Segmentation
-
-Potential uses:
-
-- Estimate affected road area
-- Segment potholes or damaged regions
-- Support severity calculations
-
-## 3.3 Visual Question Answering
-
-The system may ask targeted questions such as:
-
-- Is the road wet?
-- Is standing water visible?
-- Is the issue in a driving lane?
-- Is a pedestrian nearby?
-- Is a warning sign present?
-
-## 3.4 Image-to-Text
-
-Generate structured descriptions that can be used for:
-
-- Incident reports
-- Search
-- Embeddings
-- Duplicate detection
-- Accessibility
-- Audit logs
-
-## 3.5 Visual Document Retrieval
-
-Retrieve relevant pages from municipal or infrastructure documents, including documents containing:
-
-- Text
-- Tables
-- Images
-- Layout information
-
-## 3.6 Document Question Answering
-
-Answer questions using retrieved document pages and relevant layout/context.
-
----
-
-# 4. Core System Features
-
-## Phase 1 — Incident Reporting
-
-A user should be able to:
-
-- Create an account
-- Upload an incident image
-- Add or capture a location
-- Add an optional description
-- Submit a report
-- Track report status
-
-## Phase 2 — AI Analysis
-
-The backend should:
-
-1. Store the image.
-2. Create an incident record.
-3. Send analysis to a background job.
-4. Run AI inference.
-5. Store structured results.
-6. Update the incident status.
-
-## Phase 3 — Context Enrichment
-
-Use external APIs and geospatial data to determine:
-
-- Nearby roads
-- Road importance/type
-- Schools
-- Hospitals
-- Bus stops
-- Intersections
-- Weather conditions
-- Recent rainfall
-- Other relevant infrastructure
-
-## Phase 4 — Duplicate Detection
-
-Multiple reports may describe the same physical issue.
-
-The system should attempt to identify duplicates using combinations of:
-
-- Geographic proximity
-- Time proximity
-- Image similarity
-- Text embeddings
-- Incident type
-
-Duplicate reports should be linked to a master incident where appropriate.
-
-## Phase 5 — Priority Engine
-
-A proposed priority formula:
-
-Priority Score =
-    visual_severity
-  + road_importance
-  + pedestrian_risk
-  + weather_factor
-  + report_frequency
-  + nearby_critical_infrastructure
-
-The exact formula and weights should be designed, tested, and versioned during development.
-
-## Phase 6 — Document Intelligence
-
-Retrieve relevant maintenance procedures or municipal documents and generate evidence-backed recommendations.
-
-## Phase 7 — Operator Dashboard
-
-Operators should be able to:
-
-- View incidents on a map
-- Filter by status and severity
-- See AI analysis
-- Review duplicate reports
-- Inspect supporting evidence
-- Prioritize incidents
-- Update incident status
-
----
-
-# 5. Proposed Architecture
+Incident lifecycle:
 
 ```text
-                         Next.js Frontend
-                                |
-                                v
-                          FastAPI Backend
-                                |
-              +-----------------+------------------+
-              |                 |                  |
-              v                 v                  v
-        PostgreSQL +         Redis             Object Storage
-          PostGIS              |                 S3/MinIO
-              |                 |
-              |                 v
-              |          Background Queue
-              |                 |
-              |          Celery / Worker
-              |                 |
-              +--------+--------+---------+
-                       |                  |
-                       v                  v
-                 AI Inference       Retrieval Service
-                       |                  |
-                       v                  v
-               Hugging Face Models   Vector Search / RAG
+SUBMITTED → ANALYZED → ASSIGNED → IN_PROGRESS → RESOLVED
 ```
 
-Architecture decisions may evolve, but major changes should be documented.
+### Deferred from v1
+
+- Garbage detection
+- Streetlight detection
+- Drainage detection
+- Water-leak detection
+- Generic multi-class civic issue detection
+- Large multimodal LLM pipeline
+- Full RAG/document intelligence
+- Vector database infrastructure
+- Multiple specialized CV models
+
+These may be added after the pothole product is complete.
 
 ---
 
-# 6. Proposed Technology Stack
+# 3. Core Architecture Principle
 
-## Frontend
-
-- Next.js
-- TypeScript
-- Tailwind CSS
-- React Query or equivalent
-- MapLibre or Mapbox
-
-## Backend
-
-- Python
-- FastAPI
-- Pydantic
-
-## Database
-
-- PostgreSQL
-- PostGIS
-- pgvector (if appropriate)
-
-## Caching / Jobs
-
-- Redis
-- Celery or another background worker system
-
-## Object Storage
-
-- S3-compatible storage
-- MinIO for local development
-
-## AI
-
-- Hugging Face Transformers
-- Vision models
-- Embedding models
-- Visual retrieval models
-- LLM for report generation/RAG where appropriate
-
-## Infrastructure
-
-- Docker
-- Docker Compose
-- GitHub Actions later
-- Cloud deployment later
-
----
-
-# 7. External Data Sources
-
-Potential integrations:
-
-- OpenStreetMap / Overpass
-- Weather API
-- Geocoding API
-- Street-level imagery APIs where suitable
-- Public municipal/open-data APIs where available
-
-Every external API integration should document:
-
-- Purpose
-- Authentication requirements
-- Rate limits
-- Failure handling
-- Caching strategy
-- Cost/free-tier limitations
-
----
-
-# 8. Development Roadmap
-
-## Milestone 0 — Project Foundation
-
-- [ ] Create GitHub repository
-- [ ] Create project README
-- [ ] Create initial project structure
-- [ ] Add this source-of-truth document
-- [ ] Configure `.gitignore`
-- [ ] Make first commit
-- [ ] Push first commit to GitHub
-
-## Milestone 1 — Backend Foundation
-
-- [ ] Set up FastAPI
-- [ ] Add health endpoint
-- [ ] Set up environment configuration
-- [ ] Connect PostgreSQL
-- [ ] Design initial database schema
-- [ ] Add Docker setup
-- [ ] Add basic API documentation
-
-## Milestone 2 — Incident Reporting
-
-- [ ] Create incident database model
-- [ ] Implement image upload
-- [ ] Add object storage
-- [ ] Create incident API endpoints
-- [ ] Validate requests
-- [ ] Handle errors
-
-## Milestone 3 — AI Pipeline
-
-- [ ] Select first model
-- [ ] Create inference service abstraction
-- [ ] Add asynchronous processing
-- [ ] Store AI results
-- [ ] Add retries and failure states
-
-## Milestone 4 — Geospatial Intelligence
-
-- [ ] Add PostGIS
-- [ ] Store geographic coordinates
-- [ ] Query nearby infrastructure
-- [ ] Integrate map data
-- [ ] Add weather enrichment
-
-## Milestone 5 — Duplicate Detection
-
-- [ ] Define duplicate criteria
-- [ ] Add embeddings/similarity search
-- [ ] Add geographic clustering
-- [ ] Create master incident logic
-
-## Milestone 6 — Priority Engine
-
-- [ ] Define severity model
-- [ ] Implement priority scoring
-- [ ] Make weights configurable
-- [ ] Store score explanations
-
-## Milestone 7 — Retrieval and Document Intelligence
-
-- [ ] Collect relevant documents
-- [ ] Build ingestion pipeline
-- [ ] Add retrieval
-- [ ] Add document QA/RAG
-- [ ] Link recommendations to evidence
-
-## Milestone 8 — Frontend
-
-- [ ] Build incident submission flow
-- [ ] Build incident status view
-- [ ] Build map
-- [ ] Build operator dashboard
-- [ ] Add loading/error states
-
-## Milestone 9 — Production Engineering
-
-- [ ] Redis caching
-- [ ] Background jobs
-- [ ] Rate limiting
-- [ ] Structured logging
-- [ ] Monitoring/observability
-- [ ] Security review
-- [ ] Automated tests
-
-## Milestone 10 — Deployment
-
-- [ ] Production Docker configuration
-- [ ] CI/CD
-- [ ] Deploy backend
-- [ ] Deploy frontend
-- [ ] Configure production database/storage
-- [ ] Add monitoring
-
----
-
-# 9. GitHub Is Mandatory
-
-## Our Development Rule
-
-**We do not treat GitHub as something to update at the end of the project.**
-
-GitHub will be maintained from Day 1.
-
-Every meaningful completed unit of work should follow:
+CivicLens separates **visual facts**, **business reasoning**, and
+**application infrastructure**.
 
 ```text
-Plan
+Image
   ↓
-Create a branch if appropriate
+PotholeDetector
   ↓
-Implement
+VisualPrediction
   ↓
-Run/test
+SeverityEngine
   ↓
-Review changes
+SeverityAssessment
   ↓
-git status
+Location enrichment
   ↓
-git add
+PriorityEngine
   ↓
-git commit
-  ↓
-git push
-  ↓
-Verify GitHub
+PriorityResult
 ```
 
-## Commit Rule
-
-Commit after a meaningful, working change.
-
-Good examples:
-
-- Set up FastAPI project
-- Add PostgreSQL connection
-- Add incident database model
-- Implement image upload endpoint
-- Add Redis caching
-- Integrate weather service
-- Fix authentication bug
-
-Avoid one huge commit containing several unrelated features.
-
-Avoid committing broken code unless there is a deliberate reason.
-
-## Commit Message Format
-
-Use simple, descriptive commits:
+Duplicate detection is a separate workflow:
 
 ```text
-feat: add FastAPI application skeleton
-feat: add incident creation endpoint
-feat: integrate PostgreSQL database
-feat: add image upload service
-fix: handle invalid image uploads
-fix: retry failed analysis jobs
-docs: update architecture documentation
-refactor: separate inference service
-test: add incident API tests
-chore: update Docker configuration
+New Incident
+  ↓
+Candidate Retrieval
+  ↓
+DuplicateService
+  ├── Location similarity
+  ├── Time similarity
+  └── Visual similarity
+  ↓
+DUPLICATE / RELATED / SEPARATE
 ```
 
-## Before Every Commit
+The important architectural rule is:
 
-Run:
+> **Pure domain logic should not directly depend on databases, APIs,
+> storage, Redis, or FastAPI.**
 
-```bash
-git status
-```
+Infrastructure prepares the data; domain services make deterministic
+decisions from that data.
 
-Check what changed.
-
-Then:
-
-```bash
-git diff
-```
-
-Review the changes before committing.
-
-## Basic Workflow
-
-First time:
-
-```bash
-git init
-git add .
-git commit -m "chore: initialize CivicLens project"
-git branch -M main
-git remote add origin <YOUR_GITHUB_REPOSITORY_URL>
-git push -u origin main
-```
-
-For normal updates:
-
-```bash
-git status
-git add .
-git commit -m "feat: describe the completed feature"
-git push
-```
-
-Before starting work after a break:
-
-```bash
-git pull
-```
-
-## Important Git Rule
-
-Never blindly use commands without understanding them.
-
-As part of this project, Git and GitHub are learning objectives. Every time we use a new Git command, we should understand:
-
-1. What it does.
-2. Why we need it.
-3. What state the repository is in before running it.
-4. What changed after running it.
+This keeps the system easier to test, explain, replace, and deploy.
 
 ---
 
-# 10. Repository Structure Target
-
-The exact structure can evolve, but we should aim for something similar to:
+# 4. Current Repository Structure
 
 ```text
 civiclens/
-│
-├── README.md
-├── PROJECT.md
-├── .gitignore
-├── .env.example
-├── docker-compose.yml
-│
 ├── backend/
 │   ├── app/
 │   │   ├── api/
-│   │   ├── core/
+│   │   │   └── incidents.py
+│   │   ├── clients/
+│   │   │   ├── supabase.py
+│   │   │   ├── redis.py
+│   │   │   └── geocoding.py
+│   │   ├── config.py
 │   │   ├── db/
+│   │   │   ├── database.py
+│   │   │   ├── dependencies.py
+│   │   │   └── models.py
+│   │   ├── enums/
+│   │   │   └── incident.py
 │   │   ├── models/
+│   │   │   ├── incident.py
+│   │   │   ├── evidence.py
+│   │   │   └── analysis.py
 │   │   ├── schemas/
-│   │   ├── services/
-│   │   ├── workers/
-│   │   └── main.py
-│   │
+│   │   │   ├── incident.py
+│   │   │   ├── evidence.py
+│   │   │   ├── analysis.py
+│   │   │   ├── vision.py
+│   │   │   └── location.py
+│   │   └── services/
+│   │       ├── incident.py
+│   │       ├── storage.py
+│   │       ├── analysis.py
+│   │       ├── vision.py
+│   │       ├── pothole_detector.py
+│   │       ├── severity.py
+│   │       ├── location.py
+│   │       ├── location_context.py
+│   │       ├── priority.py
+│   │       ├── duplicate.py
+│   │       └── visual_embedding.py
 │   ├── tests/
-│   ├── requirements.txt
-│   └── Dockerfile
-│
-├── frontend/
-│   ├── app/
-│   ├── components/
-│   ├── lib/
-│   └── package.json
-│
-├── docs/
-│   ├── architecture/
-│   ├── api/
-│   └── decisions/
-│
-└── scripts/
+│   └── scripts/
+├── evaluation/
+├── ml/
+│   └── weights/
+│       └── yolo26_best.pt
+├── test_images/
+├── .env
+├── .gitignore
+├── compose.yaml
+├── PROJECT.md
+└── README.md
 ```
+
+`backend/app/models/` contains SQLAlchemy database models.
+
+`backend/app/schemas/` contains Pydantic API/data contracts.
+
+`ml/weights/` contains model weights.
+
+This separation prevents database models, API contracts, and ML artifacts
+from becoming mixed together.
 
 ---
 
-# 11. Documentation Requirements
+# 5. Technology Stack and Why
 
-Maintain documentation throughout development.
+## Python
 
-## README.md
+Used for the backend and AI components because the project needs strong
+support for FastAPI, SQLAlchemy, PyTorch, Ultralytics, NumPy, PIL, and ML
+libraries.
 
-Should eventually include:
+## FastAPI
 
-- Project overview
-- Problem statement
-- Features
-- Architecture
-- Technology stack
-- Screenshots
-- Setup instructions
-- API overview
-- AI pipeline
-- Deployment
-- Future work
+Used as the backend API framework because it provides typed request/response
+validation, automatic OpenAPI documentation, and good integration with
+Python AI services.
 
-## PROJECT.md
+## Pydantic
 
-This file is the detailed source of truth for:
+Used for structured contracts between services and API boundaries.
 
-- Vision
-- Architecture
-- Roadmap
-- Features
-- Engineering decisions
-- GitHub workflow
+This prevents loosely structured dictionaries from becoming the default
+communication mechanism between components.
 
-## Architecture Documentation
+## PostgreSQL / Supabase
 
-Major architecture decisions should be recorded.
+PostgreSQL is the persistent relational database.
 
-Example:
+Supabase is used for managed PostgreSQL and object storage, reducing
+infrastructure overhead while still using standard PostgreSQL concepts.
+
+## SQLAlchemy
+
+SQLAlchemy provides the database abstraction and ORM layer.
+
+The application keeps database session creation in `database.py` and the
+FastAPI session lifecycle in `dependencies.py`.
+
+## Alembic
+
+Alembic manages versioned database schema changes.
+
+This is preferable to manually changing production database schemas because
+each schema evolution becomes reproducible and reviewable.
+
+## Supabase Storage
+
+Incident images are stored as objects rather than directly inside database
+rows.
+
+The database stores metadata and the storage path.
+
+This keeps large binary evidence separate from relational incident data.
+
+## Redis
+
+Redis is used as infrastructure for caching geospatial lookups and can later
+support other short-lived application state.
+
+The reason for adding Redis is performance and external-API protection, not
+because every feature requires a cache.
+
+## OpenStreetMap / Nominatim
+
+Nominatim provides reverse geocoding and geographic context.
+
+CivicLens preserves useful OSM vocabulary such as highway, amenity, road,
+and place information rather than forcing everything into a tiny custom
+road-type enum.
+
+Nominatim requests are cached and the provider is kept behind a client
+abstraction because public geocoding services have rate limits and usage
+policies.
+
+## Docker / Docker Compose
+
+Docker provides reproducible local infrastructure.
+
+Redis currently runs through Docker Compose, allowing the application to use
+the same service boundary locally without installing Redis directly on the
+host.
+
+## Ultralytics / YOLO
+
+YOLO is used for local pothole object detection because CivicLens needs
+bounding boxes and confidence values, not merely image-level classification.
+
+Local inference avoids requiring an external vision API for every submitted
+image.
+
+## Hugging Face model weights
+
+The selected pothole detector is:
+
+`DanielsStulpe/pothole-detection`
+
+Its local weights are stored as:
+
+`ml/weights/yolo26_best.pt`
+
+The model is used locally so inference is controllable and reproducible.
+
+## MobileNetV3 Small / timm
+
+MobileNetV3 Small is used as a lightweight visual feature extractor for
+duplicate detection.
+
+A benchmark showed strong separation on the selected pothole dataset while
+remaining fast and lightweight enough for CPU inference.
+
+It is used as an embedding model, not as the pothole detector.
+
+## NumPy
+
+NumPy is used for numerical operations including embedding normalization and
+cosine similarity.
+
+---
+
+# 6. AI Architecture
+
+## 6.1 Pothole Detection
+
+The detector is abstracted behind:
 
 ```text
-Decision: Use background workers for AI analysis.
+VisionModel
+    ↓
+PotholeDetector
+```
 
-Reason:
-AI inference may take several seconds and should not block the API request.
+The abstraction means the rest of CivicLens does not need to know the
+specific implementation of the current detector.
 
-Trade-off:
-Additional infrastructure complexity.
+The detector:
 
-Decision Date:
-YYYY-MM-DD
+- validates image bytes
+- runs YOLO inference
+- filters detections at the current provisional confidence threshold
+- returns structured bounding boxes
+- returns the highest accepted confidence
+- identifies the incident category as pothole when detections exist
+
+Current detector threshold:
+
+`0.40`
+
+This threshold is an engineering choice for the application and is not
+claimed to be the globally optimal model threshold.
+
+---
+
+# 7. Model Evaluation
+
+The selected detector was evaluated against the IIT Madras Pothole Detection
+dataset v2.
+
+Dataset:
+
+- 2,722 total images
+- 1,906 train
+- 542 validation
+- 274 test
+- 3 classes
+- pothole class ID 2
+
+At IoU 0.50 and confidence 0.19:
+
+### Validation
+
+- Precision: 0.676
+- Recall: 0.374
+- F1: 0.481
+- TP: 540
+- FP: 259
+- FN: 904
+
+### Test
+
+- Precision: 0.664
+- Recall: 0.335
+- F1: 0.446
+- TP: 227
+- FP: 115
+- FN: 450
+
+The major weakness is missed potholes rather than catastrophic false-positive
+behavior.
+
+These measurements are retained as project evidence instead of presenting
+unverified model-performance claims.
+
+---
+
+# 8. Severity Engine
+
+Severity is deliberately separated from object detection.
+
+The detector answers:
+
+> "What visual object was detected and where?"
+
+The severity engine answers:
+
+> "How visually significant does this detected issue appear?"
+
+The current deterministic heuristic uses:
+
+- largest bounding-box area ratio
+- number of detected potholes
+- highest detector confidence as a small supporting signal
+
+Severity levels:
+
+```text
+LOW
+MEDIUM
+HIGH
+CRITICAL
+```
+
+The system explicitly does **not** claim that image bounding-box size measures
+physical pothole depth or exact real-world dimensions.
+
+Detector confidence is treated as reliability evidence, not physical danger.
+
+No detection returns no severity rather than incorrectly treating the issue
+as a low-severity pothole.
+
+---
+
+# 9. Location Intelligence
+
+CivicLens enriches incident coordinates using reverse geocoding.
+
+Current structured location information includes:
+
+- latitude
+- longitude
+- OSM category
+- OSM type
+- OSM highway
+- OSM amenity
+- OSM name
+- OSM road
+- neighbourhood
+- suburb
+- city
+- state
+- postcode
+- country
+- CivicLens civic context
+
+CivicLens-specific contexts currently include:
+
+```text
+CAMPUS
+PARKING
+UNKNOWN
+```
+
+The system does not guess a context solely from a place name or coordinate.
+
+For example, explicit OSM evidence for a university/college can produce
+`CAMPUS`.
+
+This separation lets CivicLens preserve provider data while adding its own
+operational interpretation.
+
+---
+
+# 10. Priority Engine
+
+Priority is separate from severity.
+
+Severity represents:
+
+> apparent visual seriousness.
+
+Priority represents:
+
+> how urgently CivicLens should surface the incident.
+
+Current deterministic model:
+
+```text
+Priority Score =
+    Base Severity Score
+    × Location Multiplier
+    × Confidence Factor
+```
+
+Severity base scores:
+
+```text
+LOW       25
+MEDIUM    50
+HIGH      75
+CRITICAL  100
+```
+
+Location multipliers:
+
+```text
+UNKNOWN   0.8
+PARKING   0.9
+CAMPUS    1.0
+```
+
+Confidence acts as a reliability dampener rather than a danger score.
+
+Scores map to:
+
+```text
+LOW
+MEDIUM
+HIGH
+CRITICAL
+```
+
+Low-confidence predictions are additionally marked for review.
+
+This deterministic approach was chosen for v1 because it is transparent,
+testable, and explainable. More complex learned prioritization can be
+evaluated later once CivicLens has real incident data.
+
+---
+
+# 11. End-to-End Analysis Pipeline
+
+The current analysis service orchestrates:
+
+```text
+Evidence
+   ↓
+Download image
+   ↓
+PotholeDetector
+   ↓
+SeverityEngine
+   ↓
+Location enrichment
+   ↓
+PriorityEngine
+   ↓
+AnalysisResult
+   ↓
+EvidenceAnalysis persistence
+```
+
+The orchestration layer is separate from the individual domain services.
+
+This makes each component independently testable while allowing the API to
+run the complete workflow.
+
+The pipeline rejects cases where no pothole is detected instead of producing
+a misleading low-priority pothole record.
+
+---
+
+# 12. Duplicate Detection
+
+Duplicate detection determines whether two reports may describe the same
+physical pothole.
+
+Architecture:
+
+```text
+New Incident
+    ↓
+Candidate Retrieval
+    ↓
+DuplicateService
+    ├── Location similarity
+    ├── Time similarity
+    └── Visual similarity
+    ↓
+Combined Score
+    ↓
+DUPLICATE / RELATED / SEPARATE
+```
+
+## 12.1 Geographic similarity
+
+Haversine distance is used because latitude and longitude are spherical
+coordinates rather than ordinary Cartesian x/y values.
+
+Current location scoring:
+
+```text
+≤ 20m     → 100
+≤ 50m     → 70
+≤ 100m    → 30
+> 100m    → 0
+```
+
+These are initial engineering thresholds and will be recalibrated using real
+CivicLens reports.
+
+## 12.2 Temporal similarity
+
+Current time scoring:
+
+```text
+≤ 1 hour   → 100
+≤ 6 hours  → 75
+≤ 24 hours → 50
+≤ 72 hours → 20
+> 72 hours → 0
+```
+
+## 12.3 Visual similarity
+
+MobileNetV3 Small generates normalized image embeddings.
+
+Cosine similarity compares two embeddings.
+
+The benchmark produced:
+
+### Full-image benchmark
+
+- 270 pothole test images
+- 50 synthetic same-image positive pairs
+- 200 negative pairs
+- Positive mean: 0.9311
+- Positive minimum: 0.8577
+- Negative mean: 0.3185
+- Negative maximum: 0.8109
+- Initial benchmark threshold: 0.82
+
+The benchmark achieved perfect separation on those sampled pairs.
+
+**Important limitation:** positive pairs were synthetic transformations of
+the same image, not independent photographs of the same physical pothole.
+Therefore the 0.82 threshold is provisional and must not be presented as
+real-world duplicate accuracy.
+
+A crop-based benchmark was also tested but produced worse negative separation,
+so CivicLens currently uses the full image.
+
+## 12.4 Combined duplicate score
+
+When visual evidence is available:
+
+```text
+Location  45%
+Time      20%
+Visual    35%
+```
+
+When visual evidence is unavailable, the service falls back to:
+
+```text
+Location  60%
+Time      40%
+```
+
+If only one embedding is provided, the service rejects the comparison
+explicitly rather than silently ignoring incomplete visual evidence.
+
+---
+
+# 13. Candidate Retrieval — Next Architecture Layer
+
+`DuplicateService` deliberately does not access the database.
+
+The next layer will retrieve plausible existing incidents before comparison.
+
+Conceptually:
+
+```text
+New Incident
+     ↓
+Candidate Retrieval
+     ├── geographic window
+     └── temporal window
+     ↓
+Potential existing incidents
+     ↓
+DuplicateService
+```
+
+Initial candidate bounds will align with the duplicate engine:
+
+- within 100 metres
+- within 72 hours
+- appropriate incident category/status filtering where useful
+
+The candidate retrieval component answers:
+
+> "Which incidents are worth comparing?"
+
+The `DuplicateService` answers:
+
+> "How similar are these two incidents?"
+
+This separation prevents database queries from contaminating pure duplicate
+scoring logic.
+
+---
+
+# 14. Database Architecture
+
+Current database models include:
+
+## Incident
+
+Stores:
+
+- description
+- latitude
+- longitude
+- category
+- severity
+- status
+- confidence
+- created_at
+
+## IncidentEvidence
+
+Stores:
+
+- incident_id
+- storage_path
+- file_type
+- created_at
+
+## EvidenceAnalysis
+
+Stores:
+
+- evidence_id
+- category
+- severity
+- confidence
+- model_name
+- severity_score
+- priority_score
+- priority_level
+- requires_review
+- created_at
+
+Database sessions are managed through:
+
+```text
+database.py
+    ↓
+SessionLocal
+
+FastAPI dependency
+    ↓
+get_db()
+    ↓
+request-scoped Session
+```
+
+We will reuse this mechanism rather than creating feature-specific database
+connections.
+
+---
+
+# 15. External API Principles
+
+Every external service should be isolated behind a client.
+
+Current examples:
+
+```text
+Supabase client
+Redis client
+Geocoding client
+```
+
+Reasons:
+
+1. External APIs can fail.
+2. External providers can change.
+3. Tests should not require live network access.
+4. Production providers may differ from development providers.
+5. Rate limits and authentication should not leak into domain logic.
+
+External API integrations should document:
+
+- purpose
+- authentication
+- rate limits
+- caching
+- failure handling
+- cost/free-tier limitations
+
+---
+
+# 16. Redis Strategy
+
+Redis is not currently the source of truth for incidents.
+
+PostgreSQL remains authoritative.
+
+Redis is intended for short-lived/cacheable information such as geocoding
+results.
+
+This avoids repeatedly calling external geocoding services for the same
+coordinates and helps respect provider rate limits.
+
+Redis may later support:
+
+- background-job infrastructure
+- frequently accessed incident data
+- rate limiting
+- other temporary application state
+
+Only add these uses when the actual architecture needs them.
+
+---
+
+# 17. Testing Strategy
+
+Tests are required for meaningful domain behavior.
+
+Current backend test suite:
+
+**47 tests passing**
+
+Important tested areas include:
+
+- vision model behavior
+- pothole detector
+- severity engine
+- priority engine
+- location interpretation
+- analysis orchestration
+- Haversine distance
+- time similarity
+- duplicate assessment
+- cosine similarity
+- visual embedding service
+- visual duplicate behavior
+- missing/partial visual evidence
+
+The preferred workflow is:
+
+```text
+Implement
+   ↓
+Test focused feature
+   ↓
+Run full suite
+   ↓
+Review diff
+   ↓
+Update PROJECT.md
+   ↓
+Commit
+   ↓
+Push
 ```
 
 ---
 
-# 12. Definition of Done
+# 18. GitHub Development Rule
 
-A feature is not fully done just because the code was written.
+GitHub is maintained from Day 1.
 
-A feature is considered done when appropriate items are complete:
+Every meaningful working checkpoint should be:
 
-- [ ] Implementation completed
-- [ ] Manually tested
-- [ ] Automated tests added where appropriate
-- [ ] Errors handled
-- [ ] API/schema updated if necessary
-- [ ] Documentation updated if necessary
-- [ ] Git changes reviewed
-- [ ] Meaningful commit created
-- [ ] Changes pushed to GitHub
+```text
+Implement
+→ Test
+→ Review diff
+→ Update PROJECT.md
+→ git status
+→ git add
+→ git commit
+→ git push
+→ verify clean working tree
+```
+
+We do not accumulate weeks of undocumented changes.
+
+Git commits should represent meaningful working units.
+
+Examples:
+
+```text
+feat(cv): add vision model abstraction
+feat(severity): add severity engine
+feat(duplicate): add haversine distance
+feat(duplicate): add time similarity
+feat(duplicate): add duplicate assessment service
+feat(duplicate): add visual embedding service
+feat(duplicate): add visual similarity
+```
+
+Before committing:
+
+```text
+git status
+git diff
+```
+
+Git is also a learning objective. New Git commands should be understood
+before being used.
 
 ---
 
-# 13. Learning Goals
+# 19. Architecture Decision Log
+
+## Decision 1 — Focus v1 on potholes
+
+**Why:** A complete single-domain product is more valuable than many
+half-finished civic categories.
+
+**Trade-off:** The first release has narrower functionality.
+
+**Status:** Chosen for v1.
+
+---
+
+## Decision 2 — Separate detection from severity
+
+**Why:** Object detection should report visual facts, while severity is an
+application-level interpretation.
+
+**Trade-off:** More components than putting everything inside the detector.
+
+**Benefit:** Easier testing, explainability, and future model replacement.
+
+**Status:** Implemented.
+
+---
+
+## Decision 3 — Use deterministic severity scoring for v1
+
+**Why:** There is not yet enough CivicLens-specific labeled data to justify a
+learned severity model.
+
+**Trade-off:** Less sophisticated than a trained model.
+
+**Benefit:** Transparent and auditable behavior.
+
+**Status:** Implemented.
+
+---
+
+## Decision 4 — Use deterministic priority scoring for v1
+
+**Why:** Priority is a business decision, not simply a model prediction.
+
+**Trade-off:** Hand-designed weights require later calibration.
+
+**Benefit:** Operators can understand why a score was produced.
+
+**Status:** Implemented.
+
+---
+
+## Decision 5 — Preserve native OSM vocabulary
+
+**Why:** OSM provides useful geographic classifications that would be lost
+if everything were compressed into a tiny custom road taxonomy.
+
+**Trade-off:** The resulting schema has more fields.
+
+**Status:** Implemented.
+
+---
+
+## Decision 6 — Use Redis for geospatial caching
+
+**Why:** Reverse geocoding is an external operation with rate limits and
+latency.
+
+**Trade-off:** Adds infrastructure.
+
+**Benefit:** Lower repeated API usage and faster repeated lookups.
+
+**Status:** Implemented.
+
+---
+
+## Decision 7 — Use MobileNetV3 Small for visual embeddings
+
+**Why:** It provides lightweight CPU-friendly embeddings and performed well
+on our initial duplicate-similarity benchmark.
+
+**Alternatives considered:**
+
+- pHash
+- SSIM
+- ORB/SIFT
+- YOLO internal features
+- larger embedding models
+- Siamese/metric-learning models
+- multimodal APIs
+- vector databases
+
+**Trade-off:** The model is not specifically trained for pothole identity
+matching.
+
+**Important limitation:** The benchmark used synthetic same-image
+transformations, so real-world duplicate performance remains unvalidated.
+
+**Status:** Chosen for v1.
+
+---
+
+## Decision 8 — Keep DuplicateService independent of the database
+
+**Why:** Duplicate scoring should remain deterministic and unit-testable.
+
+**Trade-off:** A separate candidate retrieval layer is required.
+
+**Benefit:** Database concerns do not leak into domain logic.
+
+**Status:** Implemented.
+
+---
+
+## Decision 9 — Use Haversine distance for geographic comparison
+
+**Why:** Latitude/longitude are spherical geographic coordinates.
+
+**Trade-off:** Slightly more computation than simple coordinate subtraction.
+
+**Benefit:** Distances are expressed correctly in metres.
+
+**Status:** Implemented.
+
+---
+
+## Decision 10 — Use full-image embeddings instead of pothole crops
+
+**Why:** Crop benchmarking improved positive-pair stability slightly but made
+negative pairs substantially more similar.
+
+**Trade-off:** Full images include more irrelevant visual information.
+
+**Benefit:** Better separation in the current benchmark.
+
+**Status:** Chosen for v1.
+
+---
+
+# 20. Completed Milestones
+
+## Foundation
+
+- [x] GitHub repository
+- [x] Project source-of-truth document
+- [x] Backend structure
+- [x] Environment configuration
+- [x] PostgreSQL/Supabase integration
+- [x] Redis infrastructure
+- [x] Docker Compose Redis setup
+
+## Computer Vision
+
+- [x] Vision model abstraction
+- [x] Pothole detector
+- [x] Model weights
+- [x] Image validation
+- [x] Detector evaluation
+- [x] Detector tests
+
+## Severity
+
+- [x] Severity engine
+- [x] Explainable severity reasons
+- [x] Severity tests
+
+## Location
+
+- [x] Reverse geocoding client
+- [x] Redis geocoding cache
+- [x] Structured location schema
+- [x] Civic context interpretation
+- [x] Location tests
+
+## Priority
+
+- [x] Deterministic priority engine
+- [x] Confidence review logic
+- [x] Priority tests
+
+## Analysis Pipeline
+
+- [x] Analysis service
+- [x] Storage → CV → severity → location → priority orchestration
+- [x] Analysis persistence
+- [x] API integration
+- [x] Orchestration tests
+
+## Duplicate Detection
+
+- [x] Haversine similarity
+- [x] Time similarity
+- [x] Duplicate assessment service
+- [x] MobileNetV3 visual embedding service
+- [x] Visual similarity
+- [x] Partial embedding validation
+- [x] Duplicate test suite
+
+**Current backend test count: 47 passing**
+
+---
+
+# 21. Current Git Checkpoints
+
+Known recent checkpoints:
+
+```text
+4eb7c1e feat(duplicate): add visual embedding service
+8a5fee1 feat(duplicate): add duplicate assessment service
+9d611ae feat(duplicate): add time similarity
+fccd4fe feat(duplicate): add harversine distance
+d185e41 test(analysis): add orchestration coverage
+0ad75ee feat(analysis): integrate end-to-end evidence analysis
+0ff48c7 refactor(vision): separate detection from severity
+```
+
+The visual similarity checkpoint was subsequently committed and pushed after
+the 47/47 test run.
+
+The exact latest hash should be verified with `git log` rather than manually
+maintained here.
+
+---
+
+# 22. Immediate Next Objective
+
+Build **database-backed duplicate candidate retrieval**.
+
+The next workflow is:
+
+```text
+New Incident
+     ↓
+Retrieve existing incidents
+     ↓
+Filter by geographic proximity
+     ↓
+Filter by temporal proximity
+     ↓
+Retrieve evidence metadata
+     ↓
+Pass candidates to DuplicateService
+```
+
+Initial candidate window:
+
+```text
+Distance: ≤ 100 metres
+Time:     ≤ 72 hours
+```
+
+The candidate retrieval layer should reuse the existing SQLAlchemy
+`SessionLocal` / `get_db()` architecture.
+
+It should not modify the pure `DuplicateService` unless a genuine domain
+requirement appears.
+
+---
+
+# 23. Future Roadmap
+
+After the pothole v1 vertical slice is complete:
+
+1. Finish duplicate orchestration
+2. Connect incident lifecycle
+3. Build operator/admin API
+4. Build frontend
+5. Add map visualization
+6. Add authentication
+7. Add background processing
+8. Add deployment
+9. Add production observability
+10. Validate duplicate detection using real independent reports
+11. Recalibrate severity/priority using collected evidence
+12. Consider vector search if scale actually requires it
+13. Consider document RAG
+14. Expand to additional civic categories
+
+---
+
+# 24. Definition of Done
+
+A meaningful feature is done when appropriate items are complete:
+
+- [ ] Implementation completed
+- [ ] Tests added where appropriate
+- [ ] Full relevant test suite passes
+- [ ] Errors handled
+- [ ] API/schema updated if necessary
+- [ ] Architecture decision documented if meaningful
+- [ ] PROJECT.md updated
+- [ ] Git diff reviewed
+- [ ] Meaningful commit created
+- [ ] Changes pushed to GitHub
+- [ ] Working tree verified clean
+
+---
+
+# 25. Learning Goals
 
 This project is also a structured learning vehicle.
 
-By the end, the developer should understand:
+The developer should understand the major concepts being used rather than
+blindly assembling libraries.
+
+Topics include:
 
 - Git and GitHub
-- REST APIs
-- HTTP requests/responses
-- Backend architecture
-- Databases
-- SQL
-- PostgreSQL
+- HTTP and REST APIs
+- FastAPI
+- Pydantic
+- SQL and PostgreSQL
+- SQLAlchemy
+- Alembic
+- Supabase
+- Object storage
 - Redis
-- Caching
-- Background jobs
-- Queues
 - Docker
 - Environment variables
-- Authentication
-- Object storage
-- AI model inference
-- RAG
-- Vector search
-- Geospatial databases
-- External API integration
-- System design fundamentals
+- AI inference
+- Object detection
+- Embeddings
+- Cosine similarity
+- Geospatial calculations
+- External APIs
+- Background jobs
+- System design
+- Testing
 - Deployment
 - CI/CD
-- Monitoring
+- Observability
+
+For every new major technology, document:
+
+```text
+What it is
+Why CivicLens needs it
+Why this implementation was selected
+What alternatives were considered
+What trade-offs it introduces
+```
 
 ---
 
-# 14. Non-Negotiable Project Principles
+# 26. Non-Negotiable Principles
 
-1. **Build incrementally.**
-2. **Do not overengineer early.**
-3. **Get a small vertical slice working first.**
-4. **Understand every major component we add.**
-5. **Do not copy code blindly.**
-6. **Use GitHub from Day 1.**
-7. **Commit meaningful updates regularly.**
-8. **Push completed updates regularly.**
-9. **Document major decisions.**
-10. **Measure real metrics instead of inventing impressive numbers.**
-11. **Prefer a working end-to-end product over many disconnected AI features.**
-12. **Every new technology should have a clear reason for being in the architecture.**
+1. Build incrementally.
+2. Do not overengineer early.
+3. Complete the pothole vertical slice before expanding categories.
+4. Understand every major component we add.
+5. Do not copy code blindly.
+6. Keep GitHub updated from Day 1.
+7. Commit meaningful working changes.
+8. Push completed changes regularly.
+9. Document meaningful architecture decisions.
+10. Measure real metrics instead of inventing impressive numbers.
+11. Prefer a working end-to-end product over disconnected AI features.
+12. Every technology must have a clear architectural reason.
+13. Keep pure domain logic independent of infrastructure where practical.
+14. Recalibrate provisional heuristics when real project data becomes
+    available.
 
----
+### Duplicate Candidate Retrieval
 
-# 15. Current Status
+CivicLens now separates **candidate retrieval** from **duplicate assessment**.
 
-**Project Stage:** Milestone 0 — Project Foundation
+The `DuplicateCandidateService` is responsible for answering:
 
-**Immediate next objective:**
+> "Which existing incidents are worth comparing against this new incident?"
 
-Create the CivicLens repository locally, initialize Git, create the initial project structure, add this `PROJECT.md` file and a starter `README.md`, make the first commit, and push the project to GitHub.
+It does **not** decide whether an incident is actually a duplicate. That decision remains the responsibility of `DuplicateService`.
 
----
+#### Candidate retrieval rules
 
-## Change Log
+For CivicLens v1, the candidate search uses:
 
-### 2026-08-20
-- Project concept established.
-- Initial architecture and roadmap documented.
-- GitHub-from-Day-1 workflow established as a core project requirement.
-- Commit and push discipline marked as mandatory.
+- **Category:** pothole incidents only
+- **Maximum geographic distance:** 100 metres
+- **Maximum time difference:** 72 hours
+- **Current incident:** excluded when an existing incident ID is supplied
+- **Ordering:** newest candidate incidents are returned first
+
+#### Retrieval strategy
+
+The database currently stores latitude and longitude as ordinary `Float` columns rather than spatial/PostGIS types.
+
+Therefore, candidate retrieval uses a two-stage geographic filter:
+
+1. **Database bounding-box pre-filter**
+   - Converts the 100 m search radius into approximate latitude/longitude ranges.
+   - Allows the database to discard obviously distant incidents cheaply.
+
+2. **Exact Haversine distance check**
+   - Calculates the actual distance between the submitted incident and each database candidate.
+   - Removes incidents that passed the rectangular bounding box but are actually more than 100 m away.
+
+This gives us a simple and explainable spatial-search layer without introducing PostGIS prematurely.
+
+PostGIS can be considered later if CivicLens reaches a scale where database-native spatial indexing and queries provide a meaningful performance benefit.
+
+#### Why candidate retrieval is separate
+
+Candidate retrieval and duplicate assessment solve different problems:
+
+```text
+New Incident
+     |
+     v
+DuplicateCandidateService
+     |
+     |-- recent enough?
+     |-- geographically close enough?
+     |-- pothole?
+     |
+     v
+Plausible Candidates
+     |
+     v
+DuplicateService
+     |
+     |-- location similarity
+     |-- time similarity
+     |-- visual similarity
+     |
+     v
+DUPLICATE / RELATED / SEPARATE
