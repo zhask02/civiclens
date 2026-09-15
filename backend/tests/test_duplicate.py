@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
+import numpy as np
 import pytest
 
 from app.services.duplicate import (
@@ -7,6 +8,7 @@ from app.services.duplicate import (
     time_difference_hours,
     DuplicateService,
     DuplicateStatus,
+    cosine_similarity,
 )
 
 
@@ -319,3 +321,135 @@ def test_assessment_contains_explanations():
     assert len(assessment.reasons) == 2
     assert "m apart" in assessment.reasons[0]
     assert "hours apart" in assessment.reasons[1]
+
+def test_cosine_similarity_identical_vectors_is_one():
+    """Identical embeddings should have maximum visual similarity."""
+
+    embedding = np.array([1.0, 0.0, 0.0])
+
+    similarity = cosine_similarity(
+        embedding,
+        embedding,
+    )
+
+    assert similarity == pytest.approx(1.0)
+
+
+def test_cosine_similarity_orthogonal_vectors_is_zero():
+    """Orthogonal embeddings should have no cosine similarity."""
+
+    embedding_1 = np.array([1.0, 0.0, 0.0])
+    embedding_2 = np.array([0.0, 1.0, 0.0])
+
+    similarity = cosine_similarity(
+        embedding_1,
+        embedding_2,
+    )
+
+    assert similarity == pytest.approx(0.0)
+
+
+def test_duplicate_service_uses_visual_similarity_when_available():
+    """
+    When embeddings are supplied, the duplicate service should include
+    visual evidence in its combined assessment.
+    """
+
+    service = DuplicateService()
+
+    timestamp = datetime(
+        2026,
+        9,
+        12,
+        10,
+        0,
+        tzinfo=timezone.utc,
+    )
+
+    # Identical embeddings represent extremely strong visual evidence.
+    embedding_1 = np.array([1.0, 0.0, 0.0])
+    embedding_2 = np.array([1.0, 0.0, 0.0])
+
+    assessment = service.assess(
+        12.8406,
+        80.1534,
+        timestamp,
+        12.8406,
+        80.1534,
+        timestamp,
+        embedding_1,
+        embedding_2,
+    )
+
+    assert assessment.visual_score == 100.0
+    assert assessment.score == pytest.approx(100.0)
+    assert assessment.status == DuplicateStatus.DUPLICATE
+    assert len(assessment.reasons) == 4
+
+
+def test_duplicate_service_can_work_without_visual_evidence():
+    """
+    Duplicate detection should remain functional when embeddings are
+    unavailable, using the established location + time fallback.
+    """
+
+    service = DuplicateService()
+
+    timestamp = datetime(
+        2026,
+        9,
+        12,
+        10,
+        0,
+        tzinfo=timezone.utc,
+    )
+
+    assessment = service.assess(
+        12.8406,
+        80.1534,
+        timestamp,
+        12.8406,
+        80.1534,
+        timestamp,
+    )
+
+    # Without embeddings, visual evidence contributes nothing.
+    assert assessment.visual_score == 0.0
+
+    # The original location + time model remains fully functional.
+    assert assessment.score == pytest.approx(100.0)
+    assert assessment.status == DuplicateStatus.DUPLICATE
+
+def test_duplicate_service_rejects_partial_visual_evidence():
+    """
+    Supplying only one embedding should fail explicitly rather than
+    silently ignoring the available visual evidence.
+    """
+
+    service = DuplicateService()
+
+    timestamp = datetime(
+        2026,
+        9,
+        12,
+        10,
+        0,
+        tzinfo=timezone.utc,
+    )
+
+    embedding = np.array([1.0, 0.0, 0.0])
+
+    with pytest.raises(
+        ValueError,
+        match="Both embeddings must be provided or both must be absent",
+    ):
+        service.assess(
+            12.8406,
+            80.1534,
+            timestamp,
+            12.8406,
+            80.1534,
+            timestamp,
+            embedding,
+            None,
+        )
