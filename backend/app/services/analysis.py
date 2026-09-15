@@ -8,12 +8,17 @@ from sqlalchemy.orm import Session
 from app.models.analysis import EvidenceAnalysis
 from app.models.incident import Incident
 from app.models.evidence import IncidentEvidence
-from app.schemas.analysis import AnalysisResult
+from app.schemas.analysis import (
+    AnalysisResult,
+    CompleteAnalysisResponse,
+    DuplicateAnalysisResponse,
+)
 from app.services.location import LocationContextService
 from app.services.pothole_detector import PotholeDetector
 from app.services.priority import PriorityEngine
 from app.services.severity import SeverityEngine
 from app.services.storage import download_evidence_file
+from app.services.duplicate_analysis import DuplicateAnalysisService
 
 
 class AnalysisService:
@@ -40,6 +45,7 @@ class AnalysisService:
         severity_engine: SeverityEngine | None = None,
         location_service: LocationContextService | None = None,
         priority_engine: PriorityEngine | None = None,
+        duplicate_analysis_service: DuplicateAnalysisService | None = None,
         storage_downloader: Callable[[str], bytes] = download_evidence_file,
     ) -> None:
         """
@@ -57,6 +63,15 @@ class AnalysisService:
         self.severity_engine = severity_engine or SeverityEngine()
         self.location_service = location_service or LocationContextService()
         self.priority_engine = priority_engine or PriorityEngine()
+
+        # Duplicate analysis is injected so unit tests can replace the
+        # potentially expensive candidate/embedding workflow with a fake.
+        self.duplicate_analysis_service = (
+            duplicate_analysis_service
+            or DuplicateAnalysisService(
+                downloader=storage_downloader,
+            )
+        )
 
         # Storage is injected as a function so tests can provide fake
         # image bytes without contacting Supabase.
@@ -194,8 +209,34 @@ class AnalysisService:
         while another verifies database persistence.
         """
 
-        # EvidenceAnalysis stores the final structured outputs of the
-        # analysis pipeline. Bounding boxes remain inside VisionPrediction
+        # Retrieve the incident through its evidence so the incident's
+        # category stays consistent with the successful vision analysis.
+        evidence = (
+            db.query(IncidentEvidence)
+            .filter(IncidentEvidence.id == evidence_id)
+            .first()
+        )
+
+        if evidence is None:
+            raise ValueError("Evidence not found")
+
+        incident = (
+            db.query(Incident)
+            .filter(Incident.id == evidence.incident_id)
+            .first()
+        )
+
+        if incident is None:
+            raise ValueError("Incident not found")
+
+        # The current CivicLens v1 pipeline only analyzes potholes.
+        # Persisting the detected category on the incident makes the incident
+        # itself usable by downstream services such as duplicate candidate
+        # retrieval.
+        incident.category = result.vision.category
+
+        # EvidenceAnalysis stores the detailed result of this particular
+        # evidence analysis. Bounding boxes remain inside VisionPrediction
         # for now because they are not yet persisted separately.
         analysis = EvidenceAnalysis(
             evidence_id=evidence_id,
@@ -226,23 +267,59 @@ class AnalysisService:
         db: Session,
         incident_id: int,
         evidence_id: int,
-    ) -> EvidenceAnalysis:
+    ) -> CompleteAnalysisResponse:
         """
-        Run the analysis pipeline and persist its completed result.
+        Run the complete CivicLens analysis workflow.
 
-        This is the method the API layer will eventually call.
+        The workflow first persists the evidence analysis and then compares
+        the incident against plausible existing pothole reports. Duplicate
+        detection is performed after persistence so the incident category is
+        already available to candidate retrieval.
         """
 
-        # First perform all external/model/business-logic work.
+        # Run the CV, severity, location, and priority pipeline first.
         result = self.analyze_evidence(
             db=db,
             incident_id=incident_id,
             evidence_id=evidence_id,
         )
 
-        # Only persist after the complete analysis succeeds.
-        return self.persist_analysis(
+        # Persist the successful analysis. This also updates the incident's
+        # category to POTHOLE, which duplicate candidate retrieval depends on.
+        analysis = self.persist_analysis(
             db=db,
             evidence_id=evidence_id,
             result=result,
+        )
+
+        # Compare this incident against nearby and recent pothole reports.
+        # The duplicate service returns all usable comparisons internally,
+        # while best_match selects the strongest candidate.
+        duplicate_result = self.duplicate_analysis_service.analyze(
+            db=db,
+            incident_id=incident_id,
+            evidence_id=evidence_id,
+        )
+
+        # Start with no duplicate match. This is the expected result when
+        # there are no plausible existing reports.
+        duplicate_response = None
+
+        if duplicate_result.best_match is not None:
+            # Convert the internal DuplicateAssessment into the smaller
+            # public API representation defined in our response schema.
+            best_match = duplicate_result.best_match
+
+            duplicate_response = DuplicateAnalysisResponse(
+                incident_id=best_match.incident_id,
+                status=best_match.assessment.status.value,
+                score=best_match.assessment.score,
+                reasons=best_match.assessment.reasons,
+            )
+
+        # Return both independent pieces of information through one API
+        # response without mixing their database responsibilities.
+        return CompleteAnalysisResponse(
+            analysis=analysis,
+            duplicate_analysis=duplicate_response,
         )

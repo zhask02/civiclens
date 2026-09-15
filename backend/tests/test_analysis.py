@@ -3,11 +3,13 @@ from datetime import datetime, UTC
 import pytest
 
 from app.enums.incident import (
+    IncidentCategory,
     IncidentSeverity,
     PriorityLevel,
 )
 from app.models.evidence import IncidentEvidence
 from app.models.incident import Incident
+from app.models.analysis import EvidenceAnalysis
 from app.schemas.location import CivicContext, LocationContext
 from app.schemas.priority import PriorityResult
 from app.schemas.vision import (
@@ -17,6 +19,14 @@ from app.schemas.vision import (
 )
 from app.services.analysis import AnalysisService
 from app.services.severity import SeverityAssessment
+from app.services.duplicate import (
+    DuplicateAssessment,
+    DuplicateStatus,
+)
+from app.services.duplicate_analysis import (
+    DuplicateCandidateAssessment,
+    DuplicateAnalysisResult,
+)
 
 
 def make_prediction(
@@ -181,6 +191,10 @@ class FakeDB:
         self.evidence = evidence
         self.incident = incident
 
+        # Store objects passed to add() so persistence behaviour can be
+        # inspected without requiring a real PostgreSQL connection.
+        self.added_objects = []
+
     def query(self, model):
         # Return the appropriate fake query depending on which model
         # AnalysisService is trying to retrieve.
@@ -191,6 +205,61 @@ class FakeDB:
             return FakeDBQuery(self.incident)
 
         raise AssertionError(f"Unexpected model queried: {model}")
+
+    def add(self, obj):
+        # Record the object that the service wants to persist.
+        self.added_objects.append(obj)
+
+    def commit(self):
+        # The fake database does not need a real transaction.
+        # This method exists so the service can follow the same contract
+        # as it would with the real SQLAlchemy Session.
+        pass
+
+    def refresh(self, obj):
+        """
+        Simulate database-generated fields after SQLAlchemy refreshes an object.
+
+        The real database supplies the primary key and creation timestamp.
+        Our fake database needs to provide those values so Pydantic can
+        validate the public response just like it would in production.
+        """
+
+        # EvidenceAnalysis receives its primary key from the database.
+        if isinstance(obj, EvidenceAnalysis):
+            obj.id = 1
+
+            # Simulate the database creation timestamp that the real ORM
+            # object would contain after refresh().
+            obj.created_at = datetime(2026, 9, 15, 12, 0, 0)
+
+class FakeDuplicateAnalysisService:
+    """
+    Fake duplicate-analysis service used to test orchestration.
+
+    The test does not need real candidate retrieval or embeddings.
+    It only needs to prove that AnalysisService calls the duplicate
+    stage and correctly uses the returned best match.
+    """
+
+    def __init__(self, result):
+        # Store the predetermined result that the fake will return.
+        self.result = result
+
+        # This lets the test verify that the service was actually called.
+        self.calls = []
+
+    def analyze(self, db, *, incident_id, evidence_id):
+        # Record the arguments so the test can verify the orchestration.
+        self.calls.append(
+            {
+                "incident_id": incident_id,
+                "evidence_id": evidence_id,
+            }
+        )
+
+        # Return the controlled duplicate-analysis result.
+        return self.result
 
 
 def make_incident() -> Incident:
@@ -513,3 +582,116 @@ def test_evidence_must_belong_to_incident():
             incident_id=999,
             evidence_id=1,
         )
+
+def test_persist_analysis_updates_incident_category():
+    """
+    A successful pothole analysis should mark the incident itself as
+    a pothole so downstream services such as duplicate candidate
+    retrieval can discover the incident.
+    """
+
+    service, *_ = make_service()
+
+    incident = make_incident()
+    evidence = make_evidence()
+
+    db = FakeDB(
+        evidence=evidence,
+        incident=incident,
+    )
+
+    result = service.analyze_evidence(
+        db=db,
+        incident_id=1,
+        evidence_id=1,
+    )
+
+    service.persist_analysis(
+        db=db,
+        evidence_id=1,
+        result=result,
+    )
+
+    # The incident category must be updated from NULL to "pothole".
+    # DuplicateCandidateService relies on this field when retrieving
+    # historical pothole reports.
+    assert incident.category == "pothole"
+
+def test_analyze_and_persist_includes_duplicate_analysis():
+    """
+    The complete analysis workflow should persist the evidence analysis
+    and include the strongest duplicate candidate in its API result.
+    """
+
+    # Build the normal fake analysis components used by the existing tests.
+    service, *_ = make_service()
+
+    # Create a controlled duplicate assessment representing a strong
+    # match with an existing incident.
+    duplicate_assessment = DuplicateAssessment(
+        status=DuplicateStatus.DUPLICATE,
+        score=91.0,
+        distance_meters=12.0,
+        time_difference_hours=2.0,
+        location_score=100.0,
+        time_score=75.0,
+        visual_score=100.0,
+        reasons=[
+            "Reports are geographically close",
+            "Visual evidence is highly similar",
+        ],
+    )
+
+    # Wrap that assessment as the strongest candidate.
+    duplicate_result = DuplicateAnalysisResult(
+        candidates=[
+            DuplicateCandidateAssessment(
+                incident_id=42,
+                assessment=duplicate_assessment,
+            )
+        ]
+    )
+
+    # Replace the real duplicate-analysis service with our controlled fake.
+    fake_duplicate_service = FakeDuplicateAnalysisService(
+        duplicate_result
+    )
+
+    # Attach the fake to the existing AnalysisService instance.
+    service.duplicate_analysis_service = fake_duplicate_service
+
+    incident = make_incident()
+    evidence = make_evidence()
+
+    db = FakeDB(
+        evidence=evidence,
+        incident=incident,
+    )
+
+    # Run the complete workflow.
+    response = service.analyze_and_persist(
+        db=db,
+        incident_id=1,
+        evidence_id=1,
+    )
+
+    # Verify that duplicate analysis was actually invoked.
+    assert fake_duplicate_service.calls == [
+        {
+            "incident_id": 1,
+            "evidence_id": 1,
+        }
+    ]
+
+    # The persisted evidence analysis should still be present.
+    assert response.analysis.evidence_id == 1
+
+    # The strongest duplicate candidate should be exposed publicly.
+    assert response.duplicate_analysis is not None
+    assert response.duplicate_analysis.incident_id == 42
+    assert response.duplicate_analysis.status == "duplicate"
+    assert response.duplicate_analysis.score == 91.0
+    assert response.duplicate_analysis.reasons == [
+        "Reports are geographically close",
+        "Visual evidence is highly similar",
+    ]

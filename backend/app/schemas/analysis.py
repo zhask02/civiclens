@@ -87,3 +87,44 @@ class AnalysisResponse(BaseModel):
     model_config = {
         "from_attributes": True
     }
+
+class DuplicateAnalysisResponse(BaseModel):
+    """
+    Public representation of the strongest duplicate candidate.
+
+    Duplicate detection remains separate from EvidenceAnalysis because
+    it compares the current incident against another existing incident.
+    """
+
+    # ID of the existing incident that was the strongest candidate.
+    incident_id: int
+
+    # Final classification produced by DuplicateService:
+    # DUPLICATE, RELATED, or SEPARATE.
+    status: str
+
+    # Overall duplicate score produced by DuplicateService.
+    score: float = Field(
+        ge=0,
+        le=100,
+    )
+
+    # Human-readable reasons explaining the comparison result.
+    reasons: list[str]
+
+
+class CompleteAnalysisResponse(BaseModel):
+    """
+    Public response containing both evidence analysis and duplicate analysis.
+
+    The two parts remain separate because they represent different
+    concepts: one describes the current evidence, while the other
+    compares the incident against an existing report.
+    """
+
+    # The persisted CV, severity, location, and priority analysis.
+    analysis: AnalysisResponse
+
+    # The strongest duplicate candidate, if one was found.
+    # None means there was no usable duplicate candidate.
+    duplicate_analysis: DuplicateAnalysisResponse | None = None

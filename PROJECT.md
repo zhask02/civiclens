@@ -1076,6 +1076,69 @@ negative pairs substantially more similar.
 
 **Current backend test count: 47 passing**
 
+### Duplicate Analysis Integration
+
+Duplicate detection is now integrated into the main evidence-analysis workflow.
+
+The complete flow is:
+
+1. Retrieve and validate the incident and evidence.
+2. Run the pothole vision detector.
+3. Estimate severity.
+4. Resolve geographic context.
+5. Calculate incident priority.
+6. Persist the evidence analysis.
+7. Retrieve plausible duplicate candidates.
+8. Download candidate evidence.
+9. Generate visual embeddings.
+10. Compare location, time, and visual similarity.
+11. Select the strongest candidate.
+12. Return the evidence analysis and duplicate-analysis result together.
+
+The duplicate workflow remains separated into dedicated services:
+
+- `DuplicateCandidateService` — reduces the database search space using category, time, and geographic filters.
+- `VisualEmbeddingService` — converts evidence images into normalized visual embeddings.
+- `DuplicateService` — compares two incidents using location, time, and visual similarity.
+- `DuplicateAnalysisService` — orchestrates candidate retrieval and comparison.
+
+This separation keeps candidate retrieval, feature extraction, comparison logic, and orchestration independently testable.
+
+The analysis API now exposes both results through:
+
+`POST /incidents/{incident_id}/evidence/{evidence_id}/analysis`
+
+The response contains:
+
+- evidence analysis
+- severity and severity score
+- priority and priority score
+- review requirement
+- strongest duplicate candidate, when one exists
+
+The incident category is also persisted when analysis succeeds. This is important because candidate retrieval uses the persisted `POTHOLE` category to identify existing pothole reports.
+
+### Duplicate Analysis Testing
+
+The duplicate-analysis integration is covered by unit and orchestration tests.
+
+The test suite verifies:
+
+- incident/evidence validation
+- candidate retrieval integration
+- evidence ownership validation
+- visual embedding integration
+- candidate comparison
+- strongest-match selection
+- no-candidate behavior
+- integration with `AnalysisService`
+- API serialization of the complete analysis response
+
+The full backend test suite currently passes:
+
+`61 passed`
+
+
 ---
 
 # 21. Current Git Checkpoints

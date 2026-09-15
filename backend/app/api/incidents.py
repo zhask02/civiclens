@@ -24,7 +24,7 @@ from app.services.storage import (
 
 from app.services.analysis import AnalysisService
 
-from app.schemas.analysis import AnalysisResponse
+from app.schemas.analysis import CompleteAnalysisResponse
 
 from app.services.pothole_detector import PotholeDetector
 
@@ -330,7 +330,7 @@ def get_evidence_url(
 
 @router.post(
     "/incidents/{incident_id}/evidence/{evidence_id}/analysis",
-    response_model=AnalysisResponse,
+    response_model=CompleteAnalysisResponse,
 )
 def create_analysis(
     incident_id: int,
