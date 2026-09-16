@@ -1138,6 +1138,25 @@ The full backend test suite currently passes:
 
 `61 passed`
 
+### Citizen Report Submission Workflow
+
+`POST /reports` is the v1 citizen-facing multipart endpoint. It accepts only
+`description`, `latitude`, `longitude`, and `photo`; classification,
+severity, priority, and duplicate information remain server-generated.
+
+The endpoint creates the incident, stores validated JPEG/PNG/WEBP evidence,
+runs the existing analysis pipeline, performs duplicate analysis, and returns
+the incident, evidence, and completed assessment together. Database writes
+are committed once, at the end of a successful workflow. If any later stage
+fails after object storage succeeds, the database session is rolled back and
+the stored evidence is deleted as compensating cleanup.
+
+For v1, a photo where the detector finds no pothole is rejected with `422`.
+It does not leave a partially created report. This is deliberately not a
+claim that no pothole exists; it means CivicLens could not confirm one from
+the submitted image. Human-review submission for uncertain reports is a
+future product decision.
+
 
 ---
 
