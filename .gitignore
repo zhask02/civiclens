@@ -12,5 +12,9 @@ ml/weights/
 test_images/
 test_pothole_model.py
 
+# Frontend generated dependencies and production build output
+frontend/node_modules/
+frontend/dist/
+
 # Local evaluation dataset is too large and should not be committed.
 evaluation/dataset/

@@ -1157,6 +1157,29 @@ claim that no pothole exists; it means CivicLens could not confirm one from
 the submitted image. Human-review submission for uncertain reports is a
 future product decision.
 
+### Citizen Reporting Frontend
+
+The `frontend/` application is a mobile-first React and TypeScript app built
+with Vite. UI components remain separate from `src/api/reports.ts`, which is
+the only frontend module that calls `POST /reports`. The browser submits the
+same multipart contract as the backend: `description`, `latitude`,
+`longitude`, and `photo`.
+
+The report form validates JPEG/PNG/WEBP files up to 10 MB for immediate
+feedback, previews selected photos, supports mobile camera capture where the
+browser provides it, and disables the submit action while a request is in
+progress. Browser geolocation can fill an always-visible coordinate/map
+preview; citizens can also correct coordinates manually when permission is
+unavailable. This avoids making reporting dependent on GPS or a map provider.
+
+After a successful submission, the UI presents the server-returned report ID,
+assessment, priority, and human-readable lifecycle status. Backend states are
+translated as: submitted = Report received, analyzed = Report reviewed,
+assigned = Dispatched to repair crew, in_progress = Repair in progress, and
+resolved = Road repaired. The local development FastAPI configuration allows
+the Vite development origin through CORS; production origins must be narrowed
+as part of deployment hardening.
+
 
 ---
 
