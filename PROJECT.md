@@ -1074,7 +1074,7 @@ negative pairs substantially more similar.
 - [x] Partial embedding validation
 - [x] Duplicate test suite
 
-**Current backend test count: 47 passing**
+**Current backend test count: 80 passing**
 
 ### Duplicate Analysis Integration
 
@@ -1136,7 +1136,7 @@ The test suite verifies:
 
 The full backend test suite currently passes:
 
-`61 passed`
+`80 passed`
 
 ### Citizen Report Submission Workflow
 
@@ -1179,6 +1179,31 @@ assigned = Dispatched to repair crew, in_progress = Repair in progress, and
 resolved = Road repaired. The local development FastAPI configuration allows
 the Vite development origin through CORS; production origins must be narrowed
 as part of deployment hardening.
+
+### Citizen Report Tracking
+
+Citizen tracking now reads persisted backend data rather than reconstructing
+reports in the browser. The citizen frontend provides a report list, direct
+links from a completed submission, and a report-detail view that shows the
+stored report ID, description, coordinates, evidence image, persisted
+assessment, and lifecycle state.
+
+The tracking API adds:
+
+- `GET /reports` for the persisted report list, newest first.
+- `GET /reports/{report_id}` for one report with its latest evidence, a
+  time-limited evidence URL, and its latest persisted analysis.
+
+The lifecycle display is driven only by the incident's persisted status. It
+uses the already-enforced sequential incident lifecycle and does not create
+new transitions in React. Loading, empty, error, and not-found states are
+covered in the frontend; backend API tests cover list, detail, evidence,
+analysis, lifecycle serialization, and not-found behavior.
+
+There is no authentication or report ownership in v1. Consequently the public
+`GET /reports` list contains all CivicLens reports, not a per-citizen private
+history. Identity-bound “My Reports” must wait for the authentication
+milestone.
 
 
 ---

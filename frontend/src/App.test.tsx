@@ -3,10 +3,10 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { App } from "./App";
 import { submitReport } from "./api/reports";
 
-vi.mock("./api/reports", () => ({ submitReport: vi.fn() }));
+vi.mock("./api/reports", () => ({ submitReport: vi.fn(), getReports: vi.fn(), getReport: vi.fn() }));
 const mockedSubmit = vi.mocked(submitReport);
 const photo = new File(["photo"], "pothole.jpg", { type: "image/jpeg" });
-const report = { report_id: 1042, incident: { id: 1042, description: "Large pothole", latitude: 12.9, longitude: 80.2, category: "pothole", severity: "high", status: "analyzed", confidence: .9, created_at: "2026-09-16T10:00:00" }, evidence: { id: 4, incident_id: 1042, storage_path: "x", file_type: "image/jpeg", created_at: "2026-09-16T10:00:00" }, analysis: { analysis: { priority_level: "high", requires_review: false }, duplicate_analysis: null } };
+const report = { report_id: 1042, incident: { id: 1042, description: "Large pothole", latitude: 12.9, longitude: 80.2, category: "pothole", severity: "high", status: "analyzed", confidence: .9, created_at: "2026-09-16T10:00:00" }, evidence: { id: 4, incident_id: 1042, storage_path: "x", file_type: "image/jpeg", created_at: "2026-09-16T10:00:00" }, analysis: { analysis: { category: "pothole", severity: "high", priority_level: "high", requires_review: false }, duplicate_analysis: null } };
 
 function renderValidForm() {
   render(<App />);
