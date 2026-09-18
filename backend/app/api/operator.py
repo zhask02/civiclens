@@ -3,8 +3,10 @@ from sqlalchemy.orm import Session
 from app.auth import Principal, require_operator
 from app.db.dependencies import get_db
 from app.models.incident import Incident
+from app.models.evidence import IncidentEvidence
 from app.models.operations import IncidentAssignment, OperatorNote, IncidentStatusHistory, RoutingDecision
-from app.schemas.operations import AssignmentCreate, AssignmentResponse, NoteCreate, NoteResponse, HistoryResponse, RoutingResponse, OperatorIncidentResponse
+from app.schemas.operations import AssignmentCreate, AssignmentResponse, NoteCreate, NoteResponse, HistoryResponse, RoutingResponse, OperatorEvidenceResponse, OperatorIncidentResponse
+from app.services.storage import create_evidence_signed_url
 
 router=APIRouter(prefix="/operator",tags=["operator"],dependencies=[Depends(require_operator)])
 def incident_or_404(db,id):
@@ -24,6 +26,28 @@ def _operator_response(db, incident):
         incident=incident,
         routing=db.query(RoutingDecision).filter(RoutingDecision.incident_id == incident.id).first(),
         assignment=db.query(IncidentAssignment).filter(IncidentAssignment.incident_id == incident.id).first(),
+    )
+
+
+@router.get("/incidents/{incident_id}/evidence", response_model=OperatorEvidenceResponse)
+def latest_evidence(incident_id: int, db: Session = Depends(get_db)):
+    """Issue an operator-authorized, time-limited URL for the latest image."""
+
+    incident_or_404(db, incident_id)
+    evidence = (
+        db.query(IncidentEvidence)
+        .filter(IncidentEvidence.incident_id == incident_id)
+        .order_by(IncidentEvidence.created_at.desc())
+        .first()
+    )
+    if evidence is None:
+        return OperatorEvidenceResponse()
+
+    # The browser receives only a short-lived URL after the router's existing
+    # operator/admin dependency has authorized this request; storage secrets
+    # and private object paths remain server-side.
+    return OperatorEvidenceResponse(
+        url=create_evidence_signed_url(evidence.storage_path),
     )
 
 @router.get("/incidents/{incident_id}", response_model=OperatorIncidentResponse)

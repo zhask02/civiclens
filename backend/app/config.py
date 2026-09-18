@@ -8,8 +8,19 @@ from dotenv import load_dotenv
 # regardless of whether Uvicorn is started from backend/ or the repo root.
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
+def load_project_environment(project_root: Path = PROJECT_ROOT) -> bool:
+    """Load the project's authoritative .env configuration.
+
+    Local configuration must take precedence over variables inherited from a
+    terminal or Uvicorn reload parent. Otherwise a stale bearer token in that
+    parent process silently overrides the configured token.
+    """
+
+    return load_dotenv(project_root / ".env", override=True)
+
+
 # Load environment variables from the single project-level .env file.
-load_dotenv(PROJECT_ROOT / ".env")
+load_project_environment()
 
 
 # Read the relative model path from environment configuration.

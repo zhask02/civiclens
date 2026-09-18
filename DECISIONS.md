@@ -102,3 +102,20 @@ remain unauthenticated and cannot claim private ownership.
 ### Revisit When
 Replace it with an identity provider when CivicLens needs individual accounts,
 revocation, or private citizen report histories.
+
+## Decision: operator evidence uses authenticated, short-lived storage URLs
+
+### Context
+Operator review requires the original pothole image, while Supabase evidence
+objects must remain private and storage credentials must never reach Vite.
+
+### Decision
+The operator API authorizes the existing operator/admin bearer dependency
+before returning a time-limited URL for the latest incident evidence. The URL
+is generated through the existing storage service; neither the bucket nor
+Supabase service credentials are exposed to the frontend.
+
+### Trade-offs
+The browser must request a new URL when selecting an incident, and a displayed
+URL eventually expires. This is preferable to making evidence publicly
+readable.

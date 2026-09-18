@@ -5,6 +5,7 @@ export type Routing = { authority_id: number | null; jurisdiction: string; sourc
 export type Assignment = { assigned_to: string; assigned_by: string; created_at: string };
 export type OperatorIncident = { incident: Incident; routing: Routing | null; assignment: Assignment | null };
 export type History = { previous_status: string; new_status: string; actor: string; source: string; created_at: string };
+export type OperatorEvidence = { url: string | null };
 
 async function request<T>(path: string, token: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, { ...init, headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", ...init?.headers } });
@@ -15,6 +16,7 @@ async function request<T>(path: string, token: string, init?: RequestInit): Prom
 }
 export const getQueue = (token: string, status = "") => request<OperatorIncident[]>(`/operator/incidents${status ? `?status=${status}` : ""}`, token);
 export const getHistory = (token: string, id: number) => request<History[]>(`/operator/incidents/${id}/history`, token);
+export const getEvidence = (token: string, id: number) => request<OperatorEvidence>(`/operator/incidents/${id}/evidence`, token);
 export const assignIncident = (token: string, id: number, assigned_to: string) => request<Assignment>(`/operator/incidents/${id}/assignment`, token, { method: "POST", body: JSON.stringify({ assigned_to }) });
 export const addNote = (token: string, id: number, content: string) => request(`/operator/incidents/${id}/notes`, token, { method: "POST", body: JSON.stringify({ content }) });
 export const updateStatus = (token: string, id: number, status: string) => request<Incident>(`/incidents/${id}`, token, { method: "PATCH", body: JSON.stringify({ status }) });

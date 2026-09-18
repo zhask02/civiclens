@@ -19,6 +19,11 @@ class RoutingResponse(BaseModel):
     incident_id:int; authority_id:int|None; jurisdiction:str; source:str; reason:str; confidence:str; manual_review_required:bool; created_at:datetime
     model_config={"from_attributes":True}
 
+class OperatorEvidenceResponse(BaseModel):
+    """A short-lived URL for the latest evidence image, when one exists."""
+
+    url: str | None = None
+
 class OperatorIncidentResponse(BaseModel):
     incident: IncidentResponse
     routing: RoutingResponse | None = None

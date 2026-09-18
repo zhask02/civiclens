@@ -1241,7 +1241,9 @@ reporting/tracking retains its explicit v1 behavior.
 
 The `#/operator` route provides a filtered queue, routing/manual-review
 context, assignment, append-only notes, sequential lifecycle controls, and
-status history. Routing is not an official external complaint submission.
+status history. Selecting an incident retrieves its latest evidence through an
+operator-authorized, time-limited Supabase Storage URL; evidence objects remain
+private. Routing is not an official external complaint submission.
 
 Future work is verified jurisdiction data, real identity/ownership, and any
 explicit authority integrations—not expansion beyond potholes.
