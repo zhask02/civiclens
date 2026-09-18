@@ -6,12 +6,15 @@ Revises: 8a137bfae737
 from alembic import op
 import sqlalchemy as sa
 from datetime import datetime
+from sqlalchemy.dialects import postgresql
 revision = "b102da6_operations"
 down_revision = "8a137bfae737"
 branch_labels = depends_on = None
 def upgrade():
-    authority_type = sa.Enum("public_local", "public_state", "national_highway", "campus_private", "unknown", name="authoritytype")
-    status = sa.Enum("submitted", "analyzed", "assigned", "in_progress", "resolved", name="incidentstatus", create_type=False)
+    # Named PostgreSQL enums are created explicitly below. Disabling their
+    # table-level DDL prevents create_table from issuing a second CREATE TYPE.
+    authority_type = postgresql.ENUM("public_local", "public_state", "national_highway", "campus_private", "unknown", name="authoritytype", create_type=False)
+    status = postgresql.ENUM("submitted", "analyzed", "assigned", "in_progress", "resolved", name="incidentstatus", create_type=False)
     authority_type.create(op.get_bind(), checkfirst=True)
     op.create_table("authorities", sa.Column("id",sa.Integer,primary_key=True),sa.Column("name",sa.String,nullable=False,unique=True),sa.Column("authority_type",authority_type,nullable=False),sa.Column("jurisdiction",sa.String,nullable=False),sa.Column("routing_key",sa.String),sa.Column("official_channel",sa.String),sa.Column("active",sa.Boolean,nullable=False,server_default=sa.true()),sa.Column("created_at",sa.DateTime,nullable=False))
     op.create_index("ix_authorities_active","authorities",["active"]); op.create_index("ix_authorities_jurisdiction","authorities",["jurisdiction"])
