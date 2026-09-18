@@ -7,8 +7,11 @@ from app.models.evidence import IncidentEvidence
 from app.models.operations import IncidentAssignment, OperatorNote, IncidentStatusHistory, RoutingDecision
 from app.schemas.operations import AssignmentCreate, AssignmentResponse, NoteCreate, NoteResponse, HistoryResponse, RoutingResponse, OperatorEvidenceResponse, OperatorIncidentResponse
 from app.services.storage import create_evidence_signed_url
+from app.services.rate_limit import limit_operator_request
 
-router=APIRouter(prefix="/operator",tags=["operator"],dependencies=[Depends(require_operator)])
+# This router contains the currently exposed operator API. The limiter depends
+# on authentication so each validated principal has an independent quota.
+router=APIRouter(prefix="/operator",tags=["operator"],dependencies=[Depends(limit_operator_request)])
 def incident_or_404(db,id):
     item=db.get(Incident,id)
     if not item: raise HTTPException(404,"Incident not found")

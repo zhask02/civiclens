@@ -1,5 +1,43 @@
 # CivicLens Architecture Decisions
 
+## Decision: Redis fixed-window limits for public reports and operator API
+
+### Context
+Submitting a citizen report can invoke storage, CV, geocoding, routing,
+duplicate analysis, and database work. The public endpoint needs inexpensive,
+shared abuse protection before that work begins.
+
+### Decision
+Use the existing synchronous Redis client for a fixed-window counter. Citizen
+submissions use a normalized socket-peer IP key; the existing operator router
+uses the validated principal name. A Lua `INCR`/`EXPIRE` script atomically sets
+the counter and TTL. Initial configuration is 20 reports/IP/60 seconds and 60
+operator requests/principal/60 seconds. Redis outage is logged safely and
+fails open in v1 to preserve reporting and operational availability.
+
+### Alternatives and why
+An in-memory dictionary would split quotas across workers and disappear on
+restart. PostgreSQL would add durable write load to the report path for
+temporary counters. A third-party rate-limit service is unjustified while the
+project already operates Redis.
+
+### Trade-offs and consequences
+Fixed windows permit boundary bursts and IPs are not identity; trusted proxy
+configuration is required before forwarded addresses may be used. Redis key
+cardinality is bounded by TTL, and keys contain neither bearer tokens nor raw
+authorization headers. Revisit for a trusted proxy, citizen accounts, measured
+abuse, or a need for smoother token-bucket limits.
+
+### Interview questions
+**How does CivicLens prevent report spam?** Redis limits each IP before CV and
+other expensive processing.
+
+**Why Redis rather than in-memory or PostgreSQL?** It is shared across API
+instances, expires counters naturally, and avoids durable database writes.
+
+**What is HTTP 429?** It tells a client it has made too many requests; CivicLens
+also returns Redis's remaining window in `Retry-After`.
+
 ## Decision: auditable lifecycle and conservative internal routing
 
 ### Context

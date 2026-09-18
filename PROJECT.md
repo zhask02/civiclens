@@ -228,8 +228,8 @@ This keeps large binary evidence separate from relational incident data.
 
 ## Redis
 
-Redis is used as infrastructure for caching geospatial lookups and can later
-support other short-lived application state.
+Redis is used as infrastructure for caching geospatial lookups and Redis-backed
+fixed-window rate limiting for public report submissions and the operator API.
 
 The reason for adding Redis is performance and external-API protection, not
 because every feature requires a cache.
@@ -771,7 +771,7 @@ Redis is not currently the source of truth for incidents.
 PostgreSQL remains authoritative.
 
 Redis is intended for short-lived/cacheable information such as geocoding
-results.
+results and rate-limit counters. PostgreSQL remains authoritative for reports.
 
 This avoids repeatedly calling external geocoding services for the same
 coordinates and helps respect provider rate limits.
@@ -780,10 +780,34 @@ Redis may later support:
 
 - background-job infrastructure
 - frequently accessed incident data
-- rate limiting
 - other temporary application state
 
 Only add these uses when the actual architecture needs them.
+
+### API rate limiting
+
+`POST /reports` can invoke evidence storage, CV inference, geocoding,
+prioritisation, duplicate analysis, routing, and database writes. It is limited
+before that application pipeline to 20 requests per socket-peer IP every 60
+seconds. The current `/operator` router is limited to 60 requests per validated
+principal every 60 seconds. Limits use Redis keys such as
+`rate:reports:ip:<normalized-ip>` and `rate:operator:<principal>`; bearer
+tokens and authorization headers are never stored in keys or logs.
+
+The limiter uses one Redis Lua operation containing `INCR` and first-window
+`EXPIRE`, so multiple API instances share the counter without a Python race and
+the TTL is created atomically. A exceeded request receives HTTP 429 with a
+`Retry-After` header from the Redis TTL. Redis failure is deliberately
+fail-open in v1: the service logs a safe operational warning and continues the
+request, favouring hazard reporting and operator availability over protection
+during a cache-infrastructure outage.
+
+The peer address comes from the FastAPI/Uvicorn connection and not arbitrary
+`X-Forwarded-For`. A production deployment behind a reverse proxy must first
+configure trusted-proxy handling. IP quotas are therefore an abuse-control
+measure, not a user identity guarantee; IPv6 address rotation and many users
+behind one NAT remain limitations. Configure the four `CIVICLENS_*_RATE_*`
+environment values to tune the initial policy.
 
 ---
 

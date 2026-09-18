@@ -13,6 +13,7 @@ from app.services.analysis import AnalysisService
 from app.services.pothole_detector import PotholeDetector
 from app.services.report import ReportService, ReportValidationError
 from app.services.storage import create_evidence_signed_url
+from app.services.rate_limit import limit_report_submission
 
 router = APIRouter(tags=["reports"])
 
@@ -73,6 +74,7 @@ def get_report(report_id: int, db: Session = Depends(get_db)):
 
 @router.post("/reports", response_model=ReportResponse, status_code=201)
 def submit_report(
+    _: None = Depends(limit_report_submission),
     description: str = Form(...),
     latitude: float = Form(...),
     longitude: float = Form(...),
