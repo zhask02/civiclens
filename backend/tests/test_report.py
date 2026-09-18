@@ -51,6 +51,9 @@ class NoDuplicates:
     class Result: best_match = None
     def analyze(self, **kwargs): return self.Result()
 
+class NoRoute:
+    def resolve(self, *args, **kwargs): return None
+
 
 class FakeAnalysisService:
     def __init__(self, fail=False):
@@ -74,7 +77,7 @@ class FakeAnalysisService:
 def make_service(analysis=None, uploads=None, deleted=None):
     uploads = uploads if uploads is not None else []
     deleted = deleted if deleted is not None else []
-    return ReportService(analysis or FakeAnalysisService(), uploader=lambda incident_id, content, extension, content_type: (uploads.append((incident_id, content, extension, content_type)) or "incidents/7/image.jpg"), deleter=deleted.append)
+    return ReportService(analysis or FakeAnalysisService(), uploader=lambda incident_id, content, extension, content_type: (uploads.append((incident_id, content, extension, content_type)) or "incidents/7/image.jpg"), deleter=deleted.append, routing_service=NoRoute())
 
 
 def test_submit_report_creates_and_analyzes_one_atomic_report():

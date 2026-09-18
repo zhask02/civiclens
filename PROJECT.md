@@ -1230,7 +1230,23 @@ maintained here.
 
 ---
 
-# 22. Immediate Next Objective
+# 22. Operational milestone
+
+The operator and authority-routing layer is now integrated into the modular
+monolith. Alembic versions authorities, routing decisions, assignments, notes,
+and status history. Citizen report submission persists one conservative
+internal routing decision in the same transaction as analysis. Operator/admin
+bearer-token authorization protects operational mutations; public citizen
+reporting/tracking retains its explicit v1 behavior.
+
+The `#/operator` route provides a filtered queue, routing/manual-review
+context, assignment, append-only notes, sequential lifecycle controls, and
+status history. Routing is not an official external complaint submission.
+
+Future work is verified jurisdiction data, real identity/ownership, and any
+explicit authority integrations—not expansion beyond potholes.
+
+# 23. Historical immediate next objective
 
 Build **database-backed duplicate candidate retrieval**.
 

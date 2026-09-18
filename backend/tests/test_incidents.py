@@ -7,6 +7,7 @@ so the test remains deterministic and does not call external services.
 """
 
 from datetime import datetime
+import os
 
 from fastapi.testclient import TestClient
 
@@ -20,6 +21,8 @@ from app.schemas.analysis import (
 from app.schemas.priority import PriorityLevel
 from app.enums.incident import IncidentSeverity
 from app.enums.incident import IncidentStatus
+
+os.environ["CIVICLENS_OPERATOR_TOKEN"] = "test-operator-token"
 
 
 class FakeAnalysisService:
@@ -120,6 +123,9 @@ class FakeIncidentDB:
         # Return a query object containing our controlled test incident.
         return FakeIncidentQuery(self.incident)
 
+    def add(self, obj):
+        self.history = getattr(self, "history", []) + [obj]
+
     def commit(self):
         # The test does not need real persistence.
         pass
@@ -168,7 +174,8 @@ def test_analysis_endpoint_returns_complete_analysis_response(monkeypatch):
         client = TestClient(app)
 
         response = client.post(
-            "/incidents/10/evidence/20/analysis"
+            "/incidents/10/evidence/20/analysis",
+            headers={"Authorization": "Bearer test-operator-token"},
         )
 
         # The route should successfully return the complete response.
@@ -215,9 +222,8 @@ def test_update_incident_allows_valid_status_transition(monkeypatch):
         },
     )()
 
-    app.dependency_overrides[incidents_api.get_db] = (
-        lambda: FakeIncidentDB(incident)
-    )
+    db = FakeIncidentDB(incident)
+    app.dependency_overrides[incidents_api.get_db] = lambda: db
 
     try:
         client = TestClient(app)
@@ -225,6 +231,7 @@ def test_update_incident_allows_valid_status_transition(monkeypatch):
         response = client.patch(
             "/incidents/10",
             json={"status": "analyzed"},
+            headers={"Authorization": "Bearer test-operator-token"},
         )
 
         # The transition SUBMITTED → ANALYZED is valid.
@@ -237,9 +244,16 @@ def test_update_incident_allows_valid_status_transition(monkeypatch):
 
         # Confirm FastAPI serialized the updated status correctly.
         assert data["status"] == "analyzed"
+        assert db.history[0].previous_status == IncidentStatus.SUBMITTED
+        assert db.history[0].new_status == IncidentStatus.ANALYZED
+        assert db.history[0].actor == "operator"
 
     finally:
         app.dependency_overrides.clear()
+
+def test_operational_mutation_requires_a_bearer_token():
+    response = TestClient(app).patch("/incidents/10", json={"status": "analyzed"})
+    assert response.status_code == 401
 
 
 def test_update_incident_rejects_invalid_status_transition():
@@ -273,6 +287,7 @@ def test_update_incident_rejects_invalid_status_transition():
         response = client.patch(
             "/incidents/10",
             json={"status": "resolved"},
+            headers={"Authorization": "Bearer test-operator-token"},
         )
 
         # SUBMITTED → RESOLVED skips ANALYZED, ASSIGNED, and IN_PROGRESS.
@@ -324,6 +339,7 @@ def test_update_incident_does_not_accept_ai_generated_fields():
                 "severity": "critical",
                 "confidence": 0.99,
             },
+            headers={"Authorization": "Bearer test-operator-token"},
         )
 
         # The request contains no fields accepted by IncidentUpdate,

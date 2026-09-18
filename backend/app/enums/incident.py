@@ -37,3 +37,10 @@ class IncidentStatus(str, Enum):
     ASSIGNED = "assigned"
     IN_PROGRESS = "in_progress"
     RESOLVED = "resolved"
+
+class AuthorityType(str, Enum):
+    PUBLIC_LOCAL = "public_local"
+    PUBLIC_STATE = "public_state"
+    NATIONAL_HIGHWAY = "national_highway"
+    CAMPUS_PRIVATE = "campus_private"
+    UNKNOWN = "unknown"

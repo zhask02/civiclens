@@ -5,6 +5,7 @@ from app.config import get_pothole_model_path
 from app.db.dependencies import get_db
 from app.models.incident import Incident
 from app.models.evidence import IncidentEvidence
+from app.models.operations import IncidentStatusHistory
 from app.schemas.incident import (
     IncidentCreate,
     IncidentResponse,
@@ -16,6 +17,7 @@ from app.schemas.evidence import (
     EvidenceURLResponse,
 )
 from app.services.incident import can_transition_status
+from app.auth import Principal, require_operator
 from app.services.storage import (
     upload_evidence_file,
     delete_evidence_file,
@@ -85,6 +87,7 @@ def get_incident(
 def update_incident(
     incident_id: int,
     incident_update: IncidentUpdate,
+    principal: Principal = Depends(require_operator),
     db: Session = Depends(get_db),
 ):
     incident = (
@@ -117,6 +120,13 @@ def update_incident(
                     f"{incident.status.value} -> {new_status.value}"
                 ),
             )
+        db.add(IncidentStatusHistory(
+            incident_id=incident.id,
+            previous_status=incident.status,
+            new_status=new_status,
+            actor=principal.name,
+            source="incident_api",
+        ))
 
     for field, value in update_data.items():
         setattr(incident, field, value)
@@ -133,6 +143,7 @@ def update_incident(
 )
 def delete_incident(
     incident_id: int,
+    principal: Principal = Depends(require_operator),
     db: Session = Depends(get_db),
 ):
     incident = (
@@ -158,6 +169,7 @@ def delete_incident(
 def create_evidence(
     incident_id: int,
     evidence: EvidenceCreate,
+    principal: Principal = Depends(require_operator),
     db: Session = Depends(get_db),
 ):
     incident = (
@@ -223,6 +235,7 @@ def get_incident_evidence(
 def upload_evidence(
     incident_id: int,
     file: UploadFile = File(...),
+    principal: Principal = Depends(require_operator),
     db: Session = Depends(get_db),
 ):
     incident = (
@@ -335,6 +348,7 @@ def get_evidence_url(
 def create_analysis(
     incident_id: int,
     evidence_id: int,
+    principal: Principal = Depends(require_operator),
     db: Session = Depends(get_db),
 ):
     """

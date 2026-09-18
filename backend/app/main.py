@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.health import router as health_router
 from app.api.incidents import router as incident_router
 from app.api.reports import router as report_router
+from app.api.operator import router as operator_router
 
 app = FastAPI()
 
@@ -21,3 +22,4 @@ app.add_middleware(
 app.include_router(health_router)
 app.include_router(incident_router)
 app.include_router(report_router)
+app.include_router(operator_router)

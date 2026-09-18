@@ -16,6 +16,7 @@ from app.schemas.analysis import (
 from app.schemas.report import ReportResponse, ReportSubmission
 from app.services.analysis import AnalysisService
 from app.services.storage import delete_evidence_file, upload_evidence_file
+from app.services.routing import RoutingService
 
 
 class ReportValidationError(ValueError):
@@ -40,10 +41,12 @@ class ReportService:
         analysis_service: AnalysisService,
         uploader: Callable[[int, bytes, str, str], str] = upload_evidence_file,
         deleter: Callable[[str], None] = delete_evidence_file,
+        routing_service: RoutingService | None = None,
     ) -> None:
         self.analysis_service = analysis_service
         self.uploader = uploader
         self.deleter = deleter
+        self.routing_service = routing_service or RoutingService()
 
     @classmethod
     def validate_image(
@@ -116,6 +119,9 @@ class ReportService:
             analysis = self.analysis_service.persist_analysis(
                 db=db, evidence_id=evidence.id, result=result, commit=False
             )
+            # This is an internal recommendation, not an external complaint.
+            # It shares the report transaction so operator queue data is ready.
+            self.routing_service.resolve(db, incident.id, result.location)
             duplicate_result = self.analysis_service.duplicate_analysis_service.analyze(
                 db=db, incident_id=incident.id, evidence_id=evidence.id
             )
