@@ -28,3 +28,6 @@ class OperatorIncidentResponse(BaseModel):
     incident: IncidentResponse
     routing: RoutingResponse | None = None
     assignment: AssignmentResponse | None = None
+    # Priority is calculated during analysis but is not stored on Incident.
+    # Expose it here so the operator UI can show the persisted decision.
+    priority_level: str | None = None

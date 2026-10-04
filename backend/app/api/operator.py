@@ -4,6 +4,7 @@ from app.auth import Principal, require_operator
 from app.db.dependencies import get_db
 from app.models.incident import Incident
 from app.models.evidence import IncidentEvidence
+from app.models.analysis import EvidenceAnalysis
 from app.models.operations import IncidentAssignment, OperatorNote, IncidentStatusHistory, RoutingDecision
 from app.schemas.operations import AssignmentCreate, AssignmentResponse, NoteCreate, NoteResponse, HistoryResponse, RoutingResponse, OperatorEvidenceResponse, OperatorIncidentResponse
 from app.services.storage import create_evidence_signed_url
@@ -25,10 +26,18 @@ def queue(status:str|None=None, severity:str|None=None, review_required:bool|Non
     return [row for row in rows if review_required is None or (row.routing and row.routing.manual_review_required) == review_required]
 
 def _operator_response(db, incident):
+    analysis = (
+        db.query(EvidenceAnalysis)
+        .join(IncidentEvidence, EvidenceAnalysis.evidence_id == IncidentEvidence.id)
+        .filter(IncidentEvidence.incident_id == incident.id)
+        .order_by(EvidenceAnalysis.created_at.desc())
+        .first()
+    )
     return OperatorIncidentResponse(
         incident=incident,
         routing=db.query(RoutingDecision).filter(RoutingDecision.incident_id == incident.id).first(),
         assignment=db.query(IncidentAssignment).filter(IncidentAssignment.incident_id == incident.id).first(),
+        priority_level=analysis.priority_level if analysis else None,
     )
 
 
