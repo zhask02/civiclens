@@ -19,4 +19,4 @@ export const getHistory = (token: string, id: number) => request<History[]>(`/op
 export const getEvidence = (token: string, id: number) => request<OperatorEvidence>(`/operator/incidents/${id}/evidence`, token);
 export const assignIncident = (token: string, id: number, assigned_to: string) => request<Assignment>(`/operator/incidents/${id}/assignment`, token, { method: "POST", body: JSON.stringify({ assigned_to }) });
 export const addNote = (token: string, id: number, content: string) => request(`/operator/incidents/${id}/notes`, token, { method: "POST", body: JSON.stringify({ content }) });
-export const updateStatus = (token: string, id: number, status: string) => request<Incident>(`/incidents/${id}`, token, { method: "PATCH", body: JSON.stringify({ status }) });
+export const updateStatus = (token: string, id: number, status: string) => request<Incident>(`/operator/incidents/${id}/status`, token, { method: "PATCH", body: JSON.stringify({ status }) });

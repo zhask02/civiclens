@@ -6,7 +6,9 @@ from app.models.incident import Incident
 from app.models.evidence import IncidentEvidence
 from app.models.analysis import EvidenceAnalysis
 from app.models.operations import IncidentAssignment, OperatorNote, IncidentStatusHistory, RoutingDecision
+from app.schemas.incident import IncidentResponse, IncidentUpdate
 from app.schemas.operations import AssignmentCreate, AssignmentResponse, NoteCreate, NoteResponse, HistoryResponse, RoutingResponse, OperatorEvidenceResponse, OperatorIncidentResponse
+from app.services.incident import can_transition_status
 from app.services.storage import create_evidence_signed_url
 from app.services.rate_limit import limit_operator_request
 
@@ -65,6 +67,37 @@ def latest_evidence(incident_id: int, db: Session = Depends(get_db)):
 @router.get("/incidents/{incident_id}", response_model=OperatorIncidentResponse)
 def detail(incident_id:int,db:Session=Depends(get_db)):
     return _operator_response(db, incident_or_404(db, incident_id))
+
+
+@router.patch("/incidents/{incident_id}/status", response_model=IncidentResponse)
+def update_status(
+    incident_id: int,
+    payload: IncidentUpdate,
+    principal: Principal = Depends(require_operator),
+    db: Session = Depends(get_db),
+):
+    """Advance one incident through the server-enforced lifecycle."""
+    incident = incident_or_404(db, incident_id)
+    if payload.status is None:
+        raise HTTPException(422, "A status is required")
+    if not can_transition_status(incident.status, payload.status):
+        raise HTTPException(
+            400,
+            f"Invalid status transition: {incident.status.value} -> {payload.status.value}",
+        )
+    db.add(IncidentStatusHistory(
+        incident_id=incident.id,
+        previous_status=incident.status,
+        new_status=payload.status,
+        actor=principal.name,
+        source="operator_api",
+    ))
+    incident.status = payload.status
+    db.commit()
+    db.refresh(incident)
+    return incident
+
+
 @router.post("/incidents/{incident_id}/assignment",response_model=AssignmentResponse)
 def assign(incident_id:int,payload:AssignmentCreate,principal:Principal=Depends(require_operator),db:Session=Depends(get_db)):
     incident_or_404(db,incident_id)
