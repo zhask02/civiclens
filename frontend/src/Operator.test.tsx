@@ -13,7 +13,7 @@ vi.mock("./api/operator", () => ({
   updateStatus: vi.fn(),
 }));
 
-const queue = [{ incident: { id: 8, description: "Pothole near gate", latitude: 12.9, longitude: 80.2, category: "pothole", severity: "high", status: "analyzed", confidence: 0.9, created_at: "2026-09-18T10:00:00" }, routing: null, assignment: null }];
+const queue = [{ incident: { id: 8, description: "Pothole near gate", latitude: 12.9, longitude: 80.2, category: "pothole", severity: "high", status: "analyzed", confidence: 0.9, created_at: "2026-09-18T10:00:00" }, routing: null, assignment: null, priority_level: "high" }];
 const evidence = vi.mocked(getEvidence);
 const history = vi.mocked(getHistory);
 const getQueueMock = vi.mocked(getQueue);
@@ -31,19 +31,19 @@ async function selectIncident() {
 test("renders the selected incident evidence image", async () => {
   evidence.mockResolvedValue({ url: "https://storage.example.test/evidence" });
   await selectIncident();
-  expect(await screen.findByAltText("Evidence for incident 8")).toHaveAttribute("src", "https://storage.example.test/evidence");
+  expect(await screen.findByAltText("Evidence for report 8")).toHaveAttribute("src", "https://storage.example.test/evidence");
 });
 
 test("shows a clear missing-evidence message", async () => {
   evidence.mockResolvedValue({ url: null });
   await selectIncident();
-  expect(await screen.findByText("No evidence image available.")).toBeInTheDocument();
+  expect(await screen.findByText("No evidence image is available for this report.")).toBeInTheDocument();
 });
 
 test("hides a failed image and explains the problem", async () => {
   evidence.mockResolvedValue({ url: "https://storage.example.test/evidence" });
   await selectIncident();
-  fireEvent.error(await screen.findByAltText("Evidence for incident 8"));
+  fireEvent.error(await screen.findByAltText("Evidence for report 8"));
   await waitFor(() => expect(screen.getByText("Evidence image could not be displayed.")).toBeInTheDocument());
-  expect(screen.queryByAltText("Evidence for incident 8")).not.toBeInTheDocument();
+  expect(screen.queryByAltText("Evidence for report 8")).not.toBeInTheDocument();
 });
