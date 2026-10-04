@@ -19,6 +19,22 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    # This is the base revision.  It must create the original table before
+    # later revisions can convert its string fields to PostgreSQL enums.
+    op.create_table(
+        "incidents",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("description", sa.Text(), nullable=False),
+        sa.Column("latitude", sa.Float(), nullable=False),
+        sa.Column("longitude", sa.Float(), nullable=False),
+        sa.Column("category", sa.String(length=100), nullable=True),
+        sa.Column("severity", sa.String(length=50), nullable=True),
+        sa.Column("status", sa.String(length=50), nullable=False),
+        sa.Column("confidence", sa.Float(), nullable=True),
+        sa.Column("created_at", sa.DateTime(), nullable=False),
+        sa.PrimaryKeyConstraint("id"),
+    )
+
     category_enum = sa.Enum(
         "pothole",
         "streetlight",
@@ -96,3 +112,4 @@ def downgrade() -> None:
 
     severity_enum.drop(op.get_bind(), checkfirst=True)
     category_enum.drop(op.get_bind(), checkfirst=True)
+    op.drop_table("incidents")
